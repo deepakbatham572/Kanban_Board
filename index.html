@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Kanban Board (Drag & Drop)</title>
+  <style>
+    :root{
+      --bg:#0b1220;
+      --panel:#111a2e;
+      --panel2:#0f1730;
+      --border:#223055;
+      --text:#e7ecff;
+      --muted:#aab3d6;
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --radius:16px;
+      --gap:14px;
+      --card:#0e1730;
+      --cardBorder:#2a3b67;
+      --accent:#6aa9ff;
+      --danger:#ff6a6a;
+    }
+
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      background: radial-gradient(1200px 600px at 20% 0%, #13224b 0%, transparent 60%),
+                  radial-gradient(900px 600px at 90% 10%, #1c2a5f 0%, transparent 60%),
+                  var(--bg);
+      color:var(--text);
+      min-height:100vh;
+      padding:24px;
+    }
+
+    header{
+      max-width:1200px;
+      margin:0 auto 18px auto;
+      display:flex;
+      flex-wrap:wrap;
+      gap:12px;
+      align-items:center;
+      justify-content:space-between;
+    }
+
+    .title{
+      display:flex; flex-direction:column; gap:4px;
+    }
+    h1{ margin:0; font-size:20px; letter-spacing:.2px; }
+    .subtitle{ margin:0; color:var(--muted); font-size:13px; }
+
+    .addbar{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      background:rgba(255,255,255,.03);
+      border:1px solid var(--border);
+      padding:10px;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+    input, select, button{
+      border-radius:12px;
+      border:1px solid var(--border);
+      background:rgba(255,255,255,.03);
+      color:var(--text);
+      padding:10px 12px;
+      outline:none;
+      font-size:14px;
+    }
+    input::placeholder{ color:#7f89b3; }
+    button{
+      cursor:pointer;
+      border-color:#2c4278;
+      background: linear-gradient(180deg, rgba(106,169,255,.18), rgba(106,169,255,.06));
+    }
+    button:hover{ border-color:#3e63b7; }
+
+    .wrap{
+      max-width:1200px;
+      margin:0 auto;
+    }
+
+    .board{
+      display:grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: var(--gap);
+    }
+    @media (max-width: 1100px){
+      .board{ grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 640px){
+      .board{ grid-template-columns: 1fr; }
+      body{ padding:16px; }
+      .addbar{ width:100%; }
+      input{ min-width: 170px; }
+    }
+
+    .column{
+      background: rgba(255,255,255,.03);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+      min-height: 420px;
+    }
+
+    .colhead{
+      padding:14px 14px 10px 14px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,0));
+      border-bottom:1px solid rgba(255,255,255,.06);
+    }
+    .colname{
+      display:flex; align-items:center; gap:10px;
+      font-weight:600; font-size:14px;
+    }
+    .badge{
+      font-size:12px;
+      color:var(--muted);
+      background: rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.08);
+      padding:2px 8px;
+      border-radius:999px;
+    }
+
+    .dropzone{
+      padding: 12px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      flex:1;
+    }
+
+    .column.dragover{
+      outline:2px dashed rgba(106,169,255,.55);
+      outline-offset:-8px;
+      background: rgba(106,169,255,.06);
+    }
+
+    .card{
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+      border:1px solid var(--cardBorder);
+      border-radius: 14px;
+      padding: 12px;
+      cursor: grab;
+      user-select:none;
+    }
+    .card:active{ cursor: grabbing; }
+    .cardtitle{
+      margin:0 0 6px 0;
+      font-size:14px;
+      font-weight:600;
+      line-height:1.25;
+      word-break: break-word;
+    }
+    .meta{
+      display:flex;
+      gap:8px;
+      align-items:center;
+      justify-content:space-between;
+      color:var(--muted);
+      font-size:12px;
+    }
+    .pill{
+      padding:2px 8px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.1);
+      background: rgba(0,0,0,.12);
+    }
+    .actions{
+      display:flex; gap:6px; align-items:center;
+    }
+    .iconbtn{
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.04);
+      padding:4px 8px;
+      border-radius:10px;
+      font-size:12px;
+      cursor:pointer;
+    }
+    .iconbtn:hover{ border-color: rgba(106,169,255,.55); }
+    .iconbtn.delete:hover{ border-color: rgba(255,106,106,.6); }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="title">
+      <h1>Kanban Board</h1>
+      <p class="subtitle">Add tasks and drag cards between statuses. Auto-saves to your browser.</p>
+    </div>
+
+    <div class="addbar">
+      <input id="taskInput" type="text" placeholder="New task (e.g., Fix login bug)" />
+      <select id="statusSelect">
+        <option value="todo">To Do</option>
+        <option value="inprogress">In Progress</option>
+        <option value="review">Review</option>
+        <option value="done">Done</option>
+      </select>
+      <button id="addBtn">Add</button>
+      <button id="clearBtn" title="Remove all tasks" style="border-color:rgba(255,106,106,.45);background:rgba(255,106,106,.08);">
+        Clear
+      </button>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <div class="board" id="board">
+      <div class="column" data-status="todo">
+        <div class="colhead">
+          <div class="colname">To Do <span class="badge" id="count-todo">0</span></div>
+        </div>
+        <div class="dropzone" id="zone-todo"></div>
+      </div>
+
+      <div class="column" data-status="inprogress">
+        <div class="colhead">
+          <div class="colname">In Progress <span class="badge" id="count-inprogress">0</span></div>
+        </div>
+        <div class="dropzone" id="zone-inprogress"></div>
+      </div>
+
+      <div class="column" data-status="review">
+        <div class="colhead">
+          <div class="colname">Review <span class="badge" id="count-review">0</span></div>
+        </div>
+        <div class="dropzone" id="zone-review"></div>
+      </div>
+
+      <div class="column" data-status="done">
+        <div class="colhead">
+          <div class="colname">Done <span class="badge" id="count-done">0</span></div>
+        </div>
+        <div class="dropzone" id="zone-done"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ---- Simple Kanban (LocalStorage + HTML5 DnD) ----
+    const STORAGE_KEY = "kanban_tasks_v1";
+
+    /** @type {{id:string,title:string,status:'todo'|'inprogress'|'review'|'done',createdAt:number}[]} */
+    let tasks = [];
+
+    const $ = (sel) => document.querySelector(sel);
+    const taskInput = $("#taskInput");
+    const statusSelect = $("#statusSelect");
+    const addBtn = $("#addBtn");
+    const clearBtn = $("#clearBtn");
+
+    const zones = {
+      todo: $("#zone-todo"),
+      inprogress: $("#zone-inprogress"),
+      review: $("#zone-review"),
+      done: $("#zone-done"),
+    };
+
+    function uid() {
+      return (crypto?.randomUUID?.() ?? ("id-" + Math.random().toString(16).slice(2))) + "-" + Date.now();
+    }
+
+    function save() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+    }
+
+    function load() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        tasks = raw ? JSON.parse(raw) : [];
+      } catch {
+        tasks = [];
+      }
+    }
+
+    function formatDate(ts) {
+      const d = new Date(ts);
+      return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "2-digit" });
+    }
+
+    function updateCounts() {
+      const counts = { todo: 0, inprogress: 0, review: 0, done: 0 };
+      for (const t of tasks) counts[t.status]++;
+
+      $("#count-todo").textContent = counts.todo;
+      $("#count-inprogress").textContent = counts.inprogress;
+      $("#count-review").textContent = counts.review;
+      $("#count-done").textContent = counts.done;
+    }
+
+    function clearZones() {
+      Object.values(zones).forEach(z => z.innerHTML = "");
+    }
+
+    function createCard(task) {
+      const card = document.createElement("div");
+      card.className = "card";
+      card.draggable = true;
+      card.dataset.id = task.id;
+
+      card.innerHTML = `
+        <p class="cardtitle"></p>
+        <div class="meta">
+          <span class="pill">${task.status}</span>
+          <div class="actions">
+            <button class="iconbtn" data-action="edit" title="Edit">Edit</button>
+            <button class="iconbtn delete" data-action="delete" title="Delete">Delete</button>
+          </div>
+        </div>
+        <div class="meta" style="margin-top:8px;">
+          <span>Created: ${formatDate(task.createdAt)}</span>
+          <span class="pill">Drag me</span>
+        </div>
+      `;
+
+      card.querySelector(".cardtitle").textContent = task.title;
+
+      // Actions
+      card.addEventListener("click", (e) => {
+        const btn = e.target.closest("button");
+        if (!btn) return;
+        const action = btn.dataset.action;
+
+        if (action === "delete") {
+          tasks = tasks.filter(t => t.id !== task.id);
+          save(); render();
+        } else if (action === "edit") {
+          const next = prompt("Edit task title:", task.title);
+          if (next && next.trim()) {
+            const t = tasks.find(t => t.id === task.id);
+            t.title = next.trim();
+            save(); render();
+          }
+        }
+      });
+
+      // Drag events
+      card.addEventListener("dragstart", (e) => {
+        e.dataTransfer.setData("text/plain", task.id);
+        e.dataTransfer.effectAllowed = "move";
+        card.style.opacity = "0.6";
+      });
+
+      card.addEventListener("dragend", () => {
+        card.style.opacity = "1";
+      });
+
+      return card;
+    }
+
+    function render() {
+      clearZones();
+
+      // Keep a stable order (createdAt) per column
+      const byCol = {
+        todo: [],
+        inprogress: [],
+        review: [],
+        done: [],
+      };
+      for (const t of tasks) byCol[t.status].push(t);
+      for (const k of Object.keys(byCol)) {
+        byCol[k].sort((a,b) => a.createdAt - b.createdAt);
+        for (const t of byCol[k]) zones[k].appendChild(createCard(t));
+      }
+
+      updateCounts();
+    }
+
+    function addTask() {
+      const title = taskInput.value.trim();
+      const status = statusSelect.value;
+      if (!title) return;
+
+      tasks.push({ id: uid(), title, status, createdAt: Date.now() });
+      taskInput.value = "";
+      save();
+      render();
+      taskInput.focus();
+    }
+
+    addBtn.addEventListener("click", addTask);
+    taskInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") addTask();
+    });
+
+    clearBtn.addEventListener("click", () => {
+      if (!confirm("Clear all tasks?")) return;
+      tasks = [];
+      save();
+      render();
+    });
+
+    // Drop behavior for each column
+    document.querySelectorAll(".column").forEach(col => {
+      const status = col.dataset.status;
+
+      col.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        col.classList.add("dragover");
+        e.dataTransfer.dropEffect = "move";
+      });
+
+      col.addEventListener("dragleave", () => {
+        col.classList.remove("dragover");
+      });
+
+      col.addEventListener("drop", (e) => {
+        e.preventDefault();
+        col.classList.remove("dragover");
+
+        const id = e.dataTransfer.getData("text/plain");
+        const t = tasks.find(x => x.id === id);
+        if (!t) return;
+
+        t.status = status;
+        save();
+        render();
+      });
+    });
+
+    // Init
+    load();
+    render();
+  </script>
+</body>
+</html>
