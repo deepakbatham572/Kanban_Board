@@ -373,8 +373,8 @@
     html[data-theme="light"] .boardbox{ border:1px dashed rgba(0,0,0,.12); }
   </style>
 </head>
-<body>
 
+<body>
   <div class="topbar">
     <div class="title">
       <h1>Kanban Board</h1>
@@ -405,7 +405,7 @@
             <button id="themeBtn">Switch to Light</button>
           </div>
 
-          <!-- SIGNED OUT: ONLY ONE BUTTON ROW -->
+          <!-- SIGNED OUT -->
           <div id="signedOutPanel">
             <div class="tabs">
               <div id="tabSignIn" class="tab active">Sign In</div>
@@ -413,16 +413,15 @@
             </div>
 
             <div class="row">
-              <input id="email" type="email" placeholder="Email" />
+              <input id="email" type="email" placeholder="Email" autocomplete="email" />
             </div>
             <div class="row">
-              <input id="password" type="password" placeholder="Password" />
+              <input id="password" type="password" placeholder="Password" autocomplete="current-password" />
             </div>
 
-            <!-- Only ONE row of buttons -->
+            <!-- ONE submit button only -->
             <div class="row">
               <button id="primaryAuthBtn">Sign in</button>
-              <button id="secondaryAuthBtn">Sign up</button>
             </div>
 
             <div class="fineprint">
@@ -586,7 +585,6 @@
     const emailEl = $("#email");
     const passEl = $("#password");
     const primaryAuthBtn = $("#primaryAuthBtn");
-    const secondaryAuthBtn = $("#secondaryAuthBtn");
 
     const profileEmail = $("#profileEmail");
     const profileUid = $("#profileUid");
@@ -618,15 +616,18 @@
       if (!e.target.closest(".profileWrap")) setMenuOpen(false);
     });
 
-    // Auth tab state
+    // Auth tab state (single submit button)
     let authMode = "in"; // "in" or "up"
     function setAuthTab(which) {
       authMode = which;
+
       tabSignIn.classList.toggle("active", which === "in");
       tabSignUp.classList.toggle("active", which === "up");
 
       primaryAuthBtn.textContent = which === "in" ? "Sign in" : "Sign up";
-      secondaryAuthBtn.textContent = which === "in" ? "Sign up" : "Sign in";
+
+      // Optional: set password autocomplete per mode
+      passEl.setAttribute("autocomplete", which === "in" ? "current-password" : "new-password");
     }
     tabSignIn.addEventListener("click", () => setAuthTab("in"));
     tabSignUp.addEventListener("click", () => setAuthTab("up"));
@@ -925,10 +926,16 @@
       setMenuOpen(false);
     });
 
-    // Auth buttons (single row)
+    // Auth (single submit button)
     async function doPrimaryAuth() {
       const email = emailEl.value.trim();
       const pass = passEl.value;
+
+      if (!email || !pass) {
+        alert("Please enter email and password.");
+        return;
+      }
+
       try {
         if (authMode === "in") {
           setSync("signing in…");
@@ -945,13 +952,7 @@
       }
     }
 
-    async function doSecondaryAuth() {
-      // swap mode
-      setAuthTab(authMode === "in" ? "up" : "in");
-    }
-
     primaryAuthBtn.addEventListener("click", doPrimaryAuth);
-    secondaryAuthBtn.addEventListener("click", doSecondaryAuth);
 
     // Enter key triggers primary auth when dropdown is open
     passEl.addEventListener("keydown", (e) => {
