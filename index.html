@@ -649,9 +649,13 @@
     // ADMIN
     // =========================
     async function checkAdmin(uid) {
-      const adminRef = doc(db, "admins", uid);
-      const snap = await getDoc(adminRef);
-      return snap.exists();
+      try {
+        const snap = await getDoc(doc(db, "admins", uid));
+        return snap.exists();
+      } catch (e) {
+        console.error("Admin check blocked by rules:", e);
+        return false;
+      }
     }
 
     async function loadAllBoardsForAdmin() {
