@@ -3,10 +3,12 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Kanban Board (Personal Tracking)</title>
+  <title>Kanban Board</title>
   <style>
     :root{
       --bg:#0b1220;
+      --panel:#0f1730;
+      --panel2:rgba(255,255,255,.03);
       --border:#223055;
       --text:#e7ecff;
       --muted:#aab3d6;
@@ -14,6 +16,8 @@
       --radius:16px;
       --gap:14px;
       --cardBorder:#2a3b67;
+      --accent: rgba(106,169,255,.55);
+      --danger: rgba(255,106,106,.6);
     }
     *{ box-sizing:border-box; }
     body{
@@ -24,33 +28,139 @@
                   var(--bg);
       color:var(--text);
       min-height:100vh;
-      padding:24px;
+      padding:22px;
     }
 
-    header{
+    /* Top bar */
+    .topbar{
       max-width:1200px;
       margin:0 auto 14px auto;
       display:flex;
-      flex-wrap:wrap;
-      gap:12px;
-      align-items:center;
+      align-items:flex-start;
       justify-content:space-between;
+      gap:12px;
     }
-    .title{ display:flex; flex-direction:column; gap:4px; }
+    .title{
+      display:flex; flex-direction:column; gap:4px;
+    }
     h1{ margin:0; font-size:20px; letter-spacing:.2px; }
     .subtitle{ margin:0; color:var(--muted); font-size:13px; }
 
-    .addbar{
+    /* Profile dropdown (top-right) */
+    .profileWrap{
+      position:relative;
       display:flex;
-      gap:10px;
       align-items:center;
-      background:rgba(255,255,255,.03);
-      border:1px solid var(--border);
-      padding:10px;
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      flex-wrap:wrap;
+      justify-content:flex-end;
+      gap:10px;
+      min-width: 220px;
     }
+
+    .pillBtn{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      border-radius:999px;
+      border:1px solid var(--border);
+      background: var(--panel2);
+      color:var(--text);
+      padding:8px 10px;
+      cursor:pointer;
+      box-shadow: var(--shadow);
+      user-select:none;
+    }
+    .pillBtn:hover{ border-color: rgba(106,169,255,.45); }
+
+    .avatar{
+      width:30px; height:30px; border-radius:50%;
+      display:grid; place-items:center;
+      background: linear-gradient(180deg, rgba(106,169,255,.25), rgba(106,169,255,.08));
+      border:1px solid rgba(255,255,255,.12);
+      font-weight:700;
+      font-size:13px;
+    }
+    .who{
+      display:flex; flex-direction:column; line-height:1.1;
+      max-width: 170px;
+    }
+    .who .name{
+      font-size:13px; font-weight:650;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    }
+    .who .hint{ font-size:11px; color:var(--muted); }
+
+    .caret{
+      width:0;height:0;
+      border-left:5px solid transparent;
+      border-right:5px solid transparent;
+      border-top:6px solid var(--muted);
+      margin-left:2px;
+    }
+
+    .menu{
+      position:absolute;
+      top: 44px;
+      right: 0;
+      width: 340px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(12,18,38,.92);
+      backdrop-filter: blur(10px);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      overflow:hidden;
+      display:none;
+      z-index: 1000;
+    }
+    .menu.open{ display:block; }
+
+    .menuHead{
+      padding:12px 12px 10px 12px;
+      border-bottom:1px solid rgba(255,255,255,.08);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+    }
+    .tag{
+      font-size:11px;
+      color: var(--muted);
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.04);
+      padding:2px 8px;
+      border-radius: 999px;
+    }
+    .tag.admin{
+      border-color: rgba(106,169,255,.45);
+      background: rgba(106,169,255,.10);
+      color: #cfe1ff;
+    }
+
+    .menuBody{ padding:12px; display:flex; flex-direction:column; gap:10px; }
+
+    .tabs{
+      display:flex;
+      gap:8px;
+    }
+    .tab{
+      flex:1;
+      padding:8px 10px;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.03);
+      cursor:pointer;
+      text-align:center;
+      font-size:13px;
+      color: var(--muted);
+    }
+    .tab.active{
+      color: var(--text);
+      border-color: rgba(106,169,255,.35);
+      background: rgba(106,169,255,.08);
+    }
+
+    .row{ display:flex; gap:10px; }
+    .row > *{ flex:1; }
+
     input, select, button{
       border-radius:12px;
       border:1px solid var(--border);
@@ -61,6 +171,7 @@
       font-size:14px;
     }
     input::placeholder{ color:#7f89b3; }
+
     button{
       cursor:pointer;
       border-color:#2c4278;
@@ -68,11 +179,41 @@
     }
     button:hover{ border-color:#3e63b7; }
     button.danger{
-      border-color:rgba(255,106,106,.45);
-      background:rgba(255,106,106,.08);
+      border-color: rgba(255,106,106,.45);
+      background: rgba(255,106,106,.08);
+    }
+
+    .fineprint{ color:var(--muted); font-size:12px; }
+    code{ color:#cfe1ff; }
+
+    /* Board controls */
+    .controls{
+      max-width:1200px;
+      margin: 0 auto 12px auto;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+      background: var(--panel2);
+      border: 1px solid var(--border);
+      padding:10px;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .statusbar{
+      max-width:1200px;
+      margin:0 auto 12px auto;
+      color:var(--muted);
+      font-size:12px;
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
     }
 
     .wrap{ max-width:1200px; margin:0 auto; }
+
     .board{
       display:grid;
       grid-template-columns: repeat(4, 1fr);
@@ -82,8 +223,6 @@
     @media (max-width: 640px){
       .board{ grid-template-columns: 1fr; }
       body{ padding:16px; }
-      .addbar{ width:100%; }
-      input{ min-width: 170px; }
     }
 
     .column{
@@ -113,7 +252,6 @@
       padding:2px 8px;
       border-radius:999px;
     }
-
     .dropzone{
       padding: 12px;
       display:flex;
@@ -122,7 +260,7 @@
       flex:1;
     }
     .column.dragover{
-      outline:2px dashed rgba(106,169,255,.55);
+      outline:2px dashed var(--accent);
       outline-offset:-8px;
       background: rgba(106,169,255,.06);
     }
@@ -167,28 +305,12 @@
       cursor:pointer;
     }
     .iconbtn:hover{ border-color: rgba(106,169,255,.55); }
-    .iconbtn.delete:hover{ border-color: rgba(255,106,106,.6); }
-
-    .statusbar{
-      max-width:1200px;
-      margin:0 auto 12px auto;
-      color:var(--muted);
-      font-size:12px;
-      display:flex;
-      justify-content:space-between;
-      gap:10px;
-      flex-wrap:wrap;
-    }
-    code{ color:#cfe1ff; }
+    .iconbtn.delete:hover{ border-color: var(--danger); }
 
     .disabled{
       opacity:.55;
       pointer-events:none;
       filter: grayscale(.2);
-    }
-    .small{
-      font-size:12px;
-      color:var(--muted);
     }
 
     /* Admin panel */
@@ -199,11 +321,10 @@
       border-radius: var(--radius);
       background: rgba(255,255,255,.03);
       box-shadow: var(--shadow);
+      display:none;
     }
-    .panel h2{
-      margin:0 0 8px 0;
-      font-size:14px;
-    }
+    .panel.open{ display:block; }
+    .panel h2{ margin:0 0 8px 0; font-size:14px; }
     .userbox{
       margin:10px 0;
       padding:10px;
@@ -216,94 +337,141 @@
       border:1px dashed rgba(255,255,255,.12);
       border-radius:12px;
     }
-    .muted{ color:var(--muted); }
   </style>
 </head>
 <body>
-  <header>
+
+  <!-- TOP BAR -->
+  <div class="topbar">
     <div class="title">
       <h1>Kanban Board</h1>
-      <p class="subtitle">Your free personal tracking board.</p>
+      <p class="subtitle">Drag & drop tasks. Sync across devices. Admin can view everyone.</p>
     </div>
 
-    <div class="addbar">
-      <!-- AUTH -->
-      <input id="email" type="email" placeholder="Email" style="min-width:220px;" />
-      <input id="password" type="password" placeholder="Password" style="min-width:200px;" />
-      <button id="signupBtn">Sign up</button>
-      <button id="signinBtn">Sign in</button>
-      <button id="logoutBtn" class="danger" style="display:none;">Logout</button>
+    <!-- Profile dropdown -->
+    <div class="profileWrap">
+      <div id="profileBtn" class="pillBtn" aria-label="Profile menu">
+        <div class="avatar" id="avatar">?</div>
+        <div class="who">
+          <div class="name" id="whoName">Guest</div>
+          <div class="hint" id="whoHint">Sign in</div>
+        </div>
+        <div class="caret"></div>
+      </div>
 
-      <span id="userLabel" class="small"></span>
-      <span id="uidLabel" class="small"></span>
+      <div id="menu" class="menu">
+        <div class="menuHead">
+          <div style="display:flex; gap:8px; align-items:center;">
+            <span class="tag" id="authTag">Signed out</span>
+            <span class="tag admin" id="adminTag" style="display:none;">Admin</span>
+          </div>
+          <button id="closeMenuBtn" class="iconbtn">Close</button>
+        </div>
 
-      <span style="width:14px;"></span>
+        <div class="menuBody">
+          <!-- Signed OUT panel -->
+          <div id="signedOutPanel">
+            <div class="tabs">
+              <div id="tabSignIn" class="tab active">Sign In</div>
+              <div id="tabSignUp" class="tab">Sign Up</div>
+            </div>
 
-      <!-- TASK INPUT -->
-      <input id="taskInput" type="text" placeholder="New task (e.g., Fix login bug)" />
-      <select id="statusSelect">
-        <option value="todo">To Do</option>
-        <option value="inprogress">In Progress</option>
-        <option value="review">Review</option>
-        <option value="done">Done</option>
-      </select>
-      <button id="addBtn">Add</button>
-      <button id="clearBtn" class="danger" title="Remove all tasks">Clear</button>
+            <div class="row">
+              <input id="email" type="email" placeholder="Email" />
+            </div>
+            <div class="row">
+              <input id="password" type="password" placeholder="Password" />
+            </div>
 
-      <!-- IMPORT/EXPORT -->
-      <button id="exportBtn" title="Download tasks as JSON">Export JSON</button>
-      <button id="importBtn" title="Load tasks from JSON (replaces current board)">Import JSON</button>
-      <input id="importFile" type="file" accept="application/json" style="display:none" />
+            <div class="row">
+              <button id="signinBtn">Sign in</button>
+              <button id="signupBtn">Sign up</button>
+            </div>
 
-      <!-- ADMIN -->
-      <button id="adminViewBtn" style="display:none;">Admin: View All</button>
-      <button id="myViewBtn" style="display:none;">My Board</button>
+            <div class="fineprint">
+              Tip: Use the same email/password on every device to see the same board.
+            </div>
+          </div>
+
+          <!-- Signed IN panel -->
+          <div id="signedInPanel" style="display:none;">
+            <div class="fineprint" style="margin-bottom:6px;">
+              <div><span class="muted">Email:</span> <span id="profileEmail"></span></div>
+              <div><span class="muted">UID:</span> <code id="profileUid"></code></div>
+            </div>
+
+            <div class="row">
+              <button id="logoutBtn" class="danger">Logout</button>
+              <button id="copyUidBtn">Copy UID</button>
+            </div>
+
+            <div class="row">
+              <button id="adminViewBtn" style="display:none;">Admin: View All</button>
+              <button id="myViewBtn" style="display:none;">My Board</button>
+            </div>
+
+            <div class="fineprint">
+              Board name comes from URL: <code>?board=default</code> or <code>?board=work</code>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
-  </header>
+  </div>
+
+  <!-- CONTROLS -->
+  <div class="controls">
+    <input id="taskInput" type="text" placeholder="New task (e.g., Fix login bug)" />
+    <select id="statusSelect">
+      <option value="todo">To Do</option>
+      <option value="inprogress">In Progress</option>
+      <option value="review">Review</option>
+      <option value="done">Done</option>
+    </select>
+    <button id="addBtn">Add</button>
+    <button id="clearBtn" class="danger">Clear</button>
+
+    <span style="width:10px;"></span>
+
+    <button id="exportBtn">Export JSON</button>
+    <button id="importBtn">Import JSON</button>
+    <input id="importFile" type="file" accept="application/json" style="display:none" />
+  </div>
 
   <div class="statusbar">
     <div>Board: <code id="boardIdLabel"></code></div>
     <div id="syncLabel">Sync: signed out</div>
   </div>
 
+  <!-- BOARD -->
   <div class="wrap">
     <div class="board disabled" id="board">
       <div class="column" data-status="todo">
-        <div class="colhead">
-          <div class="colname">To Do <span class="badge" id="count-todo">0</span></div>
-        </div>
+        <div class="colhead"><div class="colname">To Do <span class="badge" id="count-todo">0</span></div></div>
         <div class="dropzone" id="zone-todo"></div>
       </div>
 
       <div class="column" data-status="inprogress">
-        <div class="colhead">
-          <div class="colname">In Progress <span class="badge" id="count-inprogress">0</span></div>
-        </div>
+        <div class="colhead"><div class="colname">In Progress <span class="badge" id="count-inprogress">0</span></div></div>
         <div class="dropzone" id="zone-inprogress"></div>
       </div>
 
       <div class="column" data-status="review">
-        <div class="colhead">
-          <div class="colname">Review <span class="badge" id="count-review">0</span></div>
-        </div>
+        <div class="colhead"><div class="colname">Review <span class="badge" id="count-review">0</span></div></div>
         <div class="dropzone" id="zone-review"></div>
       </div>
 
       <div class="column" data-status="done">
-        <div class="colhead">
-          <div class="colname">Done <span class="badge" id="count-done">0</span></div>
-        </div>
+        <div class="colhead"><div class="colname">Done <span class="badge" id="count-done">0</span></div></div>
         <div class="dropzone" id="zone-done"></div>
       </div>
     </div>
 
-    <!-- Admin panel -->
-    <div id="adminPanel" class="panel" style="display:none;"></div>
+    <div id="adminPanel" class="panel"></div>
   </div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-
     import {
       getAuth,
       createUserWithEmailAndPassword,
@@ -311,7 +479,6 @@
       onAuthStateChanged,
       signOut
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
-
     import {
       getFirestore,
       doc,
@@ -323,56 +490,69 @@
       query
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
-    // =========================
-    // 🔁 PASTE YOUR firebaseConfig HERE
-    // =========================
-    const firebaseConfig = {
-      apiKey: "AIzaSyC-OqHdrsG2L-blbs-R9OSf19qf-XHYiFo",
-      authDomain: "kanban-29350.firebaseapp.com",
-      projectId: "kanban-29350",
-      storageBucket: "kanban-29350.firebasestorage.app",
-      messagingSenderId: "696423970590",
-      appId: "1:696423970590:web:ea0a5d4f6dee6266ea7b0f",
-      measurementId: "G-QK2JE3CEDF"
-    };
+    // ---------- Load Firebase config from config.json ----------
+    async function loadFirebaseConfig() {
+      const res = await fetch("./config.json", { cache: "no-store" });
+      if (!res.ok) throw new Error("config.json not found. Put it next to index.html");
+      return await res.json();
+    }
 
-    // Init
+    const firebaseConfig = await loadFirebaseConfig();
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
 
-    // Board id from URL
+    // ---------- URL board ----------
     const params = new URLSearchParams(location.search);
     const boardId = (params.get("board") || "default").trim();
     document.getElementById("boardIdLabel").textContent = boardId;
 
-    // UI refs
+    // ---------- UI refs ----------
     const $ = (sel) => document.querySelector(sel);
 
     const boardEl = $("#board");
     const adminPanel = $("#adminPanel");
+
     const syncLabel = $("#syncLabel");
     const setSync = (txt) => (syncLabel.textContent = "Sync: " + txt);
 
+    // Profile dropdown
+    const profileBtn = $("#profileBtn");
+    const menu = $("#menu");
+    const closeMenuBtn = $("#closeMenuBtn");
+    const avatarEl = $("#avatar");
+    const whoName = $("#whoName");
+    const whoHint = $("#whoHint");
+    const authTag = $("#authTag");
+    const adminTag = $("#adminTag");
+
+    const signedOutPanel = $("#signedOutPanel");
+    const signedInPanel = $("#signedInPanel");
+
+    const tabSignIn = $("#tabSignIn");
+    const tabSignUp = $("#tabSignUp");
+
     const emailEl = $("#email");
     const passEl = $("#password");
-    const signupBtn = $("#signupBtn");
     const signinBtn = $("#signinBtn");
+    const signupBtn = $("#signupBtn");
     const logoutBtn = $("#logoutBtn");
-    const userLabel = $("#userLabel");
-    const uidLabel = $("#uidLabel");
 
+    const profileEmail = $("#profileEmail");
+    const profileUid = $("#profileUid");
+    const copyUidBtn = $("#copyUidBtn");
+
+    const adminViewBtn = $("#adminViewBtn");
+    const myViewBtn = $("#myViewBtn");
+
+    // Controls
     const taskInput = $("#taskInput");
     const statusSelect = $("#statusSelect");
     const addBtn = $("#addBtn");
     const clearBtn = $("#clearBtn");
-
     const exportBtn = $("#exportBtn");
     const importBtn = $("#importBtn");
     const importFile = $("#importFile");
-
-    const adminViewBtn = $("#adminViewBtn");
-    const myViewBtn = $("#myViewBtn");
 
     const zones = {
       todo: $("#zone-todo"),
@@ -381,14 +561,15 @@
       done: $("#zone-done"),
     };
 
-    /** @type {{id:string,title:string,status:'todo'|'inprogress'|'review'|'done',createdAt:number}[]} */
-    let tasks = [];
-
+    // ---------- State ----------
     let currentUser = null;
     let unsubscribeBoard = null;
     let isAdmin = false;
 
-    // Helpers
+    /** @type {{id:string,title:string,status:'todo'|'inprogress'|'review'|'done',createdAt:number}[]} */
+    let tasks = [];
+
+    // ---------- Helpers ----------
     function uid() {
       return (crypto?.randomUUID?.() ?? ("id-" + Math.random().toString(16).slice(2))) + "-" + Date.now();
     }
@@ -407,10 +588,44 @@
       return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "2-digit" });
     }
 
+    function setMenuOpen(open) {
+      menu.classList.toggle("open", open);
+    }
+
+    function initialsFromEmail(email) {
+      const s = (email || "").trim();
+      if (!s) return "?";
+      const name = s.split("@")[0];
+      const parts = name.split(/[._-]+/).filter(Boolean);
+      if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+      return (name.slice(0,2) || "?").toUpperCase();
+    }
+
+    // Click outside to close dropdown
+    document.addEventListener("click", (e) => {
+      const clickedInside = e.target.closest(".profileWrap");
+      if (!clickedInside) setMenuOpen(false);
+    });
+
+    profileBtn.addEventListener("click", () => setMenuOpen(!menu.classList.contains("open")));
+    closeMenuBtn.addEventListener("click", () => setMenuOpen(false));
+
+    // Tabs: show correct primary button emphasis (UI only)
+    function setAuthTab(which) {
+      const signIn = which === "in";
+      tabSignIn.classList.toggle("active", signIn);
+      tabSignUp.classList.toggle("active", !signIn);
+
+      // minor UX: focus
+      setTimeout(() => emailEl?.focus(), 0);
+    }
+    tabSignIn.addEventListener("click", () => setAuthTab("in"));
+    tabSignUp.addEventListener("click", () => setAuthTab("up"));
+
+    // ---------- Board rendering ----------
     function updateCounts() {
       const counts = { todo: 0, inprogress: 0, review: 0, done: 0 };
       for (const t of tasks) counts[t.status]++;
-
       $("#count-todo").textContent = counts.todo;
       $("#count-inprogress").textContent = counts.inprogress;
       $("#count-review").textContent = counts.review;
@@ -419,27 +634,6 @@
 
     function clearZones() {
       Object.values(zones).forEach(z => z.innerHTML = "");
-    }
-
-    function normalizeImportedTasks(arr) {
-      const allowed = new Set(["todo", "inprogress", "review", "done"]);
-      const out = [];
-      for (const item of arr) {
-        if (!item || typeof item !== "object") continue;
-        const title = String(item.title ?? "").trim();
-        const status = String(item.status ?? "todo");
-        const createdAt = Number(item.createdAt ?? Date.now());
-        const id = String(item.id ?? uid());
-        if (!title) continue;
-        out.push({
-          id,
-          title,
-          status: allowed.has(status) ? status : "todo",
-          createdAt: Number.isFinite(createdAt) ? createdAt : Date.now()
-        });
-      }
-      out.sort((a,b) => a.createdAt - b.createdAt);
-      return out;
     }
 
     function createCard(task) {
@@ -453,8 +647,8 @@
         <div class="meta">
           <span class="pill">${task.status}</span>
           <div class="actions">
-            <button class="iconbtn" data-action="edit" title="Edit">Edit</button>
-            <button class="iconbtn delete" data-action="delete" title="Delete">Delete</button>
+            <button class="iconbtn" data-action="edit">Edit</button>
+            <button class="iconbtn delete" data-action="delete">Delete</button>
           </div>
         </div>
         <div class="meta" style="margin-top:8px;">
@@ -469,13 +663,11 @@
         const btn = e.target.closest("button");
         if (!btn) return;
 
-        const action = btn.dataset.action;
-
-        if (action === "delete") {
+        if (btn.dataset.action === "delete") {
           tasks = tasks.filter(t => t.id !== task.id);
           await saveCloud();
           render();
-        } else if (action === "edit") {
+        } else if (btn.dataset.action === "edit") {
           const next = prompt("Edit task title:", task.title);
           if (next && next.trim()) {
             const t = tasks.find(t => t.id === task.id);
@@ -492,32 +684,26 @@
         e.dataTransfer.effectAllowed = "move";
         card.style.opacity = "0.6";
       });
-
-      card.addEventListener("dragend", () => {
-        card.style.opacity = "1";
-      });
+      card.addEventListener("dragend", () => { card.style.opacity = "1"; });
 
       return card;
     }
 
     function render() {
       clearZones();
-
       const byCol = { todo: [], inprogress: [], review: [], done: [] };
       for (const t of tasks) byCol[t.status]?.push(t);
-
       for (const k of Object.keys(byCol)) {
         byCol[k].sort((a,b) => a.createdAt - b.createdAt);
         for (const t of byCol[k]) zones[k].appendChild(createCard(t));
       }
-
       updateCounts();
     }
 
+    // ---------- Firestore paths ----------
     function boardDocRefForUser(userUid) {
       return doc(db, "users", userUid, "boards", boardId);
     }
-
     function boardDocRef() {
       return boardDocRefForUser(currentUser.uid);
     }
@@ -525,9 +711,7 @@
     async function ensureBoardDocExists() {
       const ref = boardDocRef();
       const snap = await getDoc(ref);
-      if (!snap.exists()) {
-        await setDoc(ref, { tasks: [], createdAt: Date.now() });
-      }
+      if (!snap.exists()) await setDoc(ref, { tasks: [], createdAt: Date.now() });
     }
 
     async function saveCloud() {
@@ -537,7 +721,7 @@
       setSync("saved");
     }
 
-    // TASK add/clear
+    // ---------- Actions ----------
     async function addTask() {
       if (!currentUser) return;
       const title = taskInput.value.trim();
@@ -552,9 +736,7 @@
     }
 
     addBtn.addEventListener("click", addTask);
-    taskInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") addTask();
-    });
+    taskInput.addEventListener("keydown", (e) => { if (e.key === "Enter") addTask(); });
 
     clearBtn.addEventListener("click", async () => {
       if (!currentUser) return;
@@ -567,40 +749,30 @@
     // Drag & drop
     document.querySelectorAll(".column").forEach(col => {
       const status = col.dataset.status;
-
       col.addEventListener("dragover", (e) => {
         if (!currentUser) return;
         e.preventDefault();
         col.classList.add("dragover");
         e.dataTransfer.dropEffect = "move";
       });
-
       col.addEventListener("dragleave", () => col.classList.remove("dragover"));
-
       col.addEventListener("drop", async (e) => {
         if (!currentUser) return;
         e.preventDefault();
         col.classList.remove("dragover");
-
         const id = e.dataTransfer.getData("text/plain");
         const t = tasks.find(x => x.id === id);
         if (!t) return;
-
         t.status = status;
         await saveCloud();
         render();
       });
     });
 
-    // Export JSON (current user's board)
+    // Import/Export
     exportBtn.addEventListener("click", () => {
       if (!currentUser) return;
-      const payload = {
-        boardId,
-        exportedAt: new Date().toISOString(),
-        userUid: currentUser.uid,
-        tasks
-      };
+      const payload = { boardId, exportedAt: new Date().toISOString(), userUid: currentUser.uid, tasks };
       const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
@@ -609,51 +781,51 @@
       URL.revokeObjectURL(a.href);
     });
 
-    // Import JSON (replaces current user's board)
-    importBtn.addEventListener("click", () => {
-      if (!currentUser) return;
-      importFile.click();
-    });
+    importBtn.addEventListener("click", () => { if (currentUser) importFile.click(); });
+
+    function normalizeImportedTasks(arr) {
+      const allowed = new Set(["todo","inprogress","review","done"]);
+      const out = [];
+      for (const it of arr) {
+        if (!it || typeof it !== "object") continue;
+        const title = String(it.title ?? "").trim();
+        if (!title) continue;
+        const status = allowed.has(String(it.status)) ? String(it.status) : "todo";
+        const createdAt = Number.isFinite(Number(it.createdAt)) ? Number(it.createdAt) : Date.now();
+        out.push({ id: String(it.id ?? uid()), title, status, createdAt });
+      }
+      out.sort((a,b) => a.createdAt - b.createdAt);
+      return out;
+    }
 
     importFile.addEventListener("change", async () => {
       if (!currentUser) return;
       const file = importFile.files?.[0];
       if (!file) return;
-
       try {
-        const text = await file.text();
-        const parsed = JSON.parse(text);
-
+        const parsed = JSON.parse(await file.text());
         const incoming = Array.isArray(parsed) ? parsed : parsed?.tasks;
-        if (!Array.isArray(incoming)) throw new Error("Invalid JSON format. Expected an array or {tasks:[]}");
-
+        if (!Array.isArray(incoming)) throw new Error("Invalid JSON (need array or {tasks:[]}).");
         const normalized = normalizeImportedTasks(incoming);
-
-        if (!confirm(`Import ${normalized.length} tasks? This will REPLACE your board "${boardId}".`)) {
-          importFile.value = "";
-          return;
-        }
-
+        if (!confirm(`Import ${normalized.length} tasks? This will REPLACE your board "${boardId}".`)) return;
         tasks = normalized;
         await saveCloud();
         render();
       } catch (e) {
         console.error(e);
-        alert(e.message || "Invalid JSON file.");
+        alert(e.message || "Invalid JSON file");
       } finally {
         importFile.value = "";
       }
     });
 
-    // =========================
-    // ADMIN
-    // =========================
+    // ---------- Admin ----------
     async function checkAdmin(uid) {
       try {
         const snap = await getDoc(doc(db, "admins", uid));
         return snap.exists();
       } catch (e) {
-        console.error("Admin check blocked by rules:", e);
+        console.error("checkAdmin blocked by rules:", e);
         return false;
       }
     }
@@ -662,135 +834,166 @@
       if (!currentUser || !isAdmin) return;
 
       setSync("admin loading…");
-      adminPanel.style.display = "";
-      adminPanel.innerHTML = `<h2>Admin View</h2><div class="muted">Loading all users' boards…</div>`;
+      adminPanel.classList.add("open");
+      adminPanel.innerHTML = `<h2>Admin View</h2><div class="fineprint">Loading all users' boards…</div>`;
 
-      // Reads ALL docs in users/*/boards/*
-      const q = query(collectionGroup(db, "boards"));
-      const snap = await getDocs(q);
+      try {
+        const q = query(collectionGroup(db, "boards"));
+        const snap = await getDocs(q);
 
-      // Group by userId
-      const grouped = new Map(); // userId -> [{boardId, tasks}]
-      snap.forEach(docSnap => {
-        const path = docSnap.ref.path; // "users/{uid}/boards/{boardId}"
-        const parts = path.split("/");
-        const userId = parts[1];
-        const bId = parts[3];
-        const data = docSnap.data();
-        const t = Array.isArray(data?.tasks) ? data.tasks : [];
+        const grouped = new Map(); // userId -> [{boardId,tasks}]
+        snap.forEach(docSnap => {
+          const parts = docSnap.ref.path.split("/");
+          // users/{uid}/boards/{boardId}
+          if (parts.length < 4) return;
+          const userId = parts[1];
+          const bId = parts[3];
+          const data = docSnap.data();
+          const t = Array.isArray(data?.tasks) ? data.tasks : [];
+          if (!grouped.has(userId)) grouped.set(userId, []);
+          grouped.get(userId).push({ boardId: bId, tasks: t });
+        });
 
-        if (!grouped.has(userId)) grouped.set(userId, []);
-        grouped.get(userId).push({ boardId: bId, tasks: t });
-      });
+        let html = `<h2>Admin View (read-only)</h2>
+          <div class="fineprint">Users: ${grouped.size} • Board docs: ${snap.size}</div>`;
 
-      let html = `<h2>Admin View (read-only)</h2>
-        <div class="muted">Users: ${grouped.size} • Board docs: ${snap.size}</div>`;
-
-      for (const [userId, boards] of grouped.entries()) {
-        html += `<div class="userbox">
-          <div style="font-weight:600;margin-bottom:6px;">User UID: <code>${escapeHtml(userId)}</code></div>`;
-
-        // Sort boards by name for nicer view
-        boards.sort((a,b) => a.boardId.localeCompare(b.boardId));
-
-        for (const b of boards) {
-          html += `<div class="boardbox">
-            <div class="muted">Board: <code>${escapeHtml(b.boardId)}</code> • Tasks: ${b.tasks.length}</div>
-            <ul style="margin:8px 0 0 0;padding-left:18px;">`;
-
-          // Sort tasks by createdAt
-          const list = [...b.tasks].sort((x,y) => (x.createdAt||0) - (y.createdAt||0));
-          for (const t of list) {
-            html += `<li><span class="pill">${escapeHtml(t.status)}</span> ${escapeHtml(t.title)}</li>`;
-          }
-          html += `</ul></div>`;
+        if (snap.size === 0) {
+          html += `<div class="fineprint" style="margin-top:10px;">
+            No docs found under <code>users/*/boards/*</code>. Ask users to login and create tasks.
+          </div>`;
         }
 
-        html += `</div>`;
-      }
+        for (const [userId, boards] of grouped.entries()) {
+          boards.sort((a,b) => a.boardId.localeCompare(b.boardId));
+          html += `<div class="userbox">
+            <div style="font-weight:650;margin-bottom:6px;">User UID: <code>${escapeHtml(userId)}</code></div>`;
 
-      adminPanel.innerHTML = html;
-      setSync("admin view");
+          for (const b of boards) {
+            const list = [...b.tasks].sort((x,y) => (x.createdAt||0) - (y.createdAt||0));
+            html += `<div class="boardbox">
+              <div class="fineprint">Board: <code>${escapeHtml(b.boardId)}</code> • Tasks: ${list.length}</div>
+              <ul style="margin:8px 0 0 0;padding-left:18px;">`;
+            for (const t of list) {
+              html += `<li><span class="pill">${escapeHtml(t.status)}</span> ${escapeHtml(t.title)}</li>`;
+            }
+            html += `</ul></div>`;
+          }
+          html += `</div>`;
+        }
+
+        adminPanel.innerHTML = html;
+        setSync("admin view");
+      } catch (e) {
+        console.error("Admin read failed:", e);
+        adminPanel.innerHTML = `<h2>Admin View</h2>
+          <div class="fineprint">Error: ${escapeHtml(e.message || String(e))}</div>`;
+        setSync("admin error");
+      }
     }
 
     adminViewBtn.addEventListener("click", async () => {
       if (!isAdmin) return;
-      // Hide normal board while in admin view
       boardEl.style.display = "none";
-      adminPanel.style.display = "";
-      myViewBtn.style.display = "";
       await loadAllBoardsForAdmin();
+      myViewBtn.style.display = "";
+      setMenuOpen(false);
     });
 
     myViewBtn.addEventListener("click", () => {
-      adminPanel.style.display = "none";
+      adminPanel.classList.remove("open");
       boardEl.style.display = "";
       myViewBtn.style.display = "none";
       setSync(currentUser ? "live" : "signed out");
+      setMenuOpen(false);
     });
 
-    // =========================
-    // AUTH actions
-    // =========================
-    signupBtn.addEventListener("click", async () => {
-      try {
-        setSync("signing up…");
-        await createUserWithEmailAndPassword(auth, emailEl.value.trim(), passEl.value);
-      } catch (e) {
-        console.error(e);
-        setSync("error");
-        alert(e?.message || "Signup failed");
-      }
-    });
-
+    // ---------- Auth ----------
     signinBtn.addEventListener("click", async () => {
       try {
         setSync("signing in…");
         await signInWithEmailAndPassword(auth, emailEl.value.trim(), passEl.value);
+        setMenuOpen(false);
       } catch (e) {
         console.error(e);
         setSync("error");
-        alert(e?.message || "Signin failed");
+        alert(e.message || "Signin failed");
+      }
+    });
+
+    signupBtn.addEventListener("click", async () => {
+      try {
+        setSync("signing up…");
+        await createUserWithEmailAndPassword(auth, emailEl.value.trim(), passEl.value);
+        setMenuOpen(false);
+      } catch (e) {
+        console.error(e);
+        setSync("error");
+        alert(e.message || "Signup failed");
       }
     });
 
     logoutBtn.addEventListener("click", async () => {
       await signOut(auth);
+      setMenuOpen(false);
     });
 
-    // Auth state -> connect to board
+    copyUidBtn.addEventListener("click", async () => {
+      const uid = currentUser?.uid;
+      if (!uid) return;
+      await navigator.clipboard.writeText(uid);
+      alert("UID copied!");
+    });
+
+    // ---------- Auth state ----------
     onAuthStateChanged(auth, async (user) => {
-      // cleanup old snapshot listener
       if (unsubscribeBoard) { unsubscribeBoard(); unsubscribeBoard = null; }
 
       currentUser = user;
       isAdmin = false;
 
-      // reset admin UI
-      adminPanel.style.display = "none";
-      myViewBtn.style.display = "none";
+      // reset view
+      adminPanel.classList.remove("open");
       boardEl.style.display = "";
+      myViewBtn.style.display = "none";
+      adminViewBtn.style.display = "none";
+      adminTag.style.display = "none";
 
       if (!user) {
         tasks = [];
         render();
         boardEl.classList.add("disabled");
-        logoutBtn.style.display = "none";
-        userLabel.textContent = "";
-        uidLabel.textContent = "";
-        adminViewBtn.style.display = "none";
         setSync("signed out");
+
+        // profile button
+        avatarEl.textContent = "?";
+        whoName.textContent = "Guest";
+        whoHint.textContent = "Sign in";
+        authTag.textContent = "Signed out";
+
+        signedOutPanel.style.display = "";
+        signedInPanel.style.display = "none";
+        setAuthTab("in");
         return;
       }
 
       // signed in
       boardEl.classList.remove("disabled");
-      logoutBtn.style.display = "";
-      userLabel.textContent = user.email || "Signed in";
-      uidLabel.textContent = `UID: ${user.uid}`;
+      whoName.textContent = user.email || "Signed in";
+      whoHint.textContent = "Profile";
+      avatarEl.textContent = initialsFromEmail(user.email);
+      authTag.textContent = "Signed in";
+
+      signedOutPanel.style.display = "none";
+      signedInPanel.style.display = "";
+
+      profileEmail.textContent = user.email || "";
+      profileUid.textContent = user.uid;
 
       isAdmin = await checkAdmin(user.uid);
-      adminViewBtn.style.display = isAdmin ? "" : "none";
+      if (isAdmin) {
+        adminTag.style.display = "";
+        adminViewBtn.style.display = "";
+      }
 
       await ensureBoardDocExists();
 
