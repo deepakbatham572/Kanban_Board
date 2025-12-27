@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Kanban Board</title>
   <style>
+    /* =========================================================
+       THEME TOKENS (default: dark)
+    ========================================================= */
     :root{
       --bg:#0b1220;
       --panel:#0f1730;
@@ -18,17 +21,55 @@
       --cardBorder:#2a3b67;
       --accent: rgba(106,169,255,.55);
       --danger: rgba(255,106,106,.6);
+
+      /* form fixes */
+      --inputBg: rgba(255,255,255,.03);
+      --inputBorder: var(--border);
+      --selectBg: rgba(255,255,255,.03);
+      --selectText: var(--text);
+      --selectOptionBg: #ffffff;     /* important: options visible */
+      --selectOptionText: #111827;   /* important: options visible */
     }
+
+    /* Light mode overrides */
+    html[data-theme="light"]{
+      --bg:#f4f6fb;
+      --panel:#ffffff;
+      --panel2: rgba(0,0,0,.03);
+      --border:#d8def0;
+      --text:#0e1530;
+      --muted:#4b587a;
+      --shadow: 0 10px 30px rgba(15,23,48,.10);
+      --cardBorder:#cdd6ef;
+      --accent: rgba(37,99,235,.45);
+      --danger: rgba(220,38,38,.55);
+
+      --inputBg: rgba(255,255,255,.85);
+      --inputBorder: #cdd6ef;
+      --selectBg: rgba(255,255,255,.95);
+      --selectText: #0e1530;
+
+      --selectOptionBg: #ffffff;
+      --selectOptionText: #111827;
+    }
+
     *{ box-sizing:border-box; }
     body{
       margin:0;
       font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-      background: radial-gradient(1200px 600px at 20% 0%, #13224b 0%, transparent 60%),
-                  radial-gradient(900px 600px at 90% 10%, #1c2a5f 0%, transparent 60%),
-                  var(--bg);
+      background:
+        radial-gradient(1200px 600px at 20% 0%, rgba(19,34,75,.60) 0%, transparent 60%),
+        radial-gradient(900px 600px at 90% 10%, rgba(28,42,95,.55) 0%, transparent 60%),
+        var(--bg);
       color:var(--text);
       min-height:100vh;
       padding:22px;
+    }
+    html[data-theme="light"] body{
+      background:
+        radial-gradient(1200px 600px at 20% 0%, rgba(214,230,255,.70) 0%, transparent 60%),
+        radial-gradient(900px 600px at 90% 10%, rgba(226,232,255,.65) 0%, transparent 60%),
+        var(--bg);
     }
 
     /* Top bar */
@@ -46,22 +87,11 @@
     h1{ margin:0; font-size:20px; letter-spacing:.2px; }
     .subtitle{ margin:0; color:var(--muted); font-size:13px; }
 
-    /* Profile dropdown (top-right) */
-    .profileWrap{
-      position:relative;
-      display:flex;
-      align-items:center;
-      justify-content:flex-end;
-      gap:10px;
-      min-width: 220px;
-    }
-
+    /* Profile dropdown */
+    .profileWrap{ position:relative; display:flex; align-items:center; justify-content:flex-end; gap:10px; min-width: 240px; }
     .pillBtn{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      border-radius:999px;
-      border:1px solid var(--border);
+      display:flex; align-items:center; gap:10px;
+      border-radius:999px; border:1px solid var(--border);
       background: var(--panel2);
       color:var(--text);
       padding:8px 10px;
@@ -70,6 +100,7 @@
       user-select:none;
     }
     .pillBtn:hover{ border-color: rgba(106,169,255,.45); }
+    html[data-theme="light"] .pillBtn:hover{ border-color: rgba(37,99,235,.35); }
 
     .avatar{
       width:30px; height:30px; border-radius:50%;
@@ -79,16 +110,13 @@
       font-weight:700;
       font-size:13px;
     }
-    .who{
-      display:flex; flex-direction:column; line-height:1.1;
-      max-width: 170px;
+    html[data-theme="light"] .avatar{
+      border:1px solid rgba(0,0,0,.08);
     }
-    .who .name{
-      font-size:13px; font-weight:650;
-      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-    }
-    .who .hint{ font-size:11px; color:var(--muted); }
 
+    .who{ display:flex; flex-direction:column; line-height:1.1; max-width: 170px; }
+    .who .name{ font-size:13px; font-weight:650; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .who .hint{ font-size:11px; color:var(--muted); }
     .caret{
       width:0;height:0;
       border-left:5px solid transparent;
@@ -101,7 +129,7 @@
       position:absolute;
       top: 44px;
       right: 0;
-      width: 340px;
+      width: 360px;
       border:1px solid rgba(255,255,255,.10);
       background: rgba(12,18,38,.92);
       backdrop-filter: blur(10px);
@@ -110,6 +138,10 @@
       overflow:hidden;
       display:none;
       z-index: 1000;
+    }
+    html[data-theme="light"] .menu{
+      border:1px solid rgba(0,0,0,.10);
+      background: rgba(255,255,255,.92);
     }
     .menu.open{ display:block; }
 
@@ -121,6 +153,10 @@
       justify-content:space-between;
       gap:10px;
     }
+    html[data-theme="light"] .menuHead{
+      border-bottom:1px solid rgba(0,0,0,.08);
+    }
+
     .tag{
       font-size:11px;
       color: var(--muted);
@@ -129,18 +165,23 @@
       padding:2px 8px;
       border-radius: 999px;
     }
+    html[data-theme="light"] .tag{
+      border:1px solid rgba(0,0,0,.12);
+      background: rgba(0,0,0,.03);
+    }
     .tag.admin{
       border-color: rgba(106,169,255,.45);
       background: rgba(106,169,255,.10);
       color: #cfe1ff;
     }
+    html[data-theme="light"] .tag.admin{
+      color:#0b2a6b;
+      background: rgba(37,99,235,.10);
+      border-color: rgba(37,99,235,.25);
+    }
 
     .menuBody{ padding:12px; display:flex; flex-direction:column; gap:10px; }
-
-    .tabs{
-      display:flex;
-      gap:8px;
-    }
+    .tabs{ display:flex; gap:8px; }
     .tab{
       flex:1;
       padding:8px 10px;
@@ -152,10 +193,18 @@
       font-size:13px;
       color: var(--muted);
     }
+    html[data-theme="light"] .tab{
+      border:1px solid rgba(0,0,0,.10);
+      background: rgba(0,0,0,.02);
+    }
     .tab.active{
       color: var(--text);
       border-color: rgba(106,169,255,.35);
       background: rgba(106,169,255,.08);
+    }
+    html[data-theme="light"] .tab.active{
+      border-color: rgba(37,99,235,.25);
+      background: rgba(37,99,235,.08);
     }
 
     .row{ display:flex; gap:10px; }
@@ -163,30 +212,52 @@
 
     input, select, button{
       border-radius:12px;
-      border:1px solid var(--border);
-      background:rgba(255,255,255,.03);
+      border:1px solid var(--inputBorder);
+      background: var(--inputBg);
       color:var(--text);
       padding:10px 12px;
       outline:none;
       font-size:14px;
     }
     input::placeholder{ color:#7f89b3; }
+    html[data-theme="light"] input::placeholder{ color:#6b7aa7; }
+
+    /* SELECT FIX: dropdown options visible */
+    select{
+      background: var(--selectBg);
+      color: var(--selectText);
+    }
+    select option{
+      background: var(--selectOptionBg);
+      color: var(--selectOptionText);
+    }
 
     button{
       cursor:pointer;
       border-color:#2c4278;
       background: linear-gradient(180deg, rgba(106,169,255,.18), rgba(106,169,255,.06));
     }
+    html[data-theme="light"] button{
+      border-color: rgba(37,99,235,.35);
+      background: linear-gradient(180deg, rgba(37,99,235,.12), rgba(37,99,235,.06));
+    }
     button:hover{ border-color:#3e63b7; }
+    html[data-theme="light"] button:hover{ border-color: rgba(37,99,235,.55); }
+
     button.danger{
       border-color: rgba(255,106,106,.45);
       background: rgba(255,106,106,.08);
     }
+    html[data-theme="light"] button.danger{
+      border-color: rgba(220,38,38,.35);
+      background: rgba(220,38,38,.08);
+    }
 
     .fineprint{ color:var(--muted); font-size:12px; }
     code{ color:#cfe1ff; }
+    html[data-theme="light"] code{ color:#1f3a8a; }
 
-    /* Board controls */
+    /* Controls row */
     .controls{
       max-width:1200px;
       margin: 0 auto 12px auto;
@@ -200,6 +271,7 @@
       border-radius: var(--radius);
       box-shadow: var(--shadow);
     }
+    .controls .spacer{ flex: 1; min-width: 12px; }
 
     .statusbar{
       max-width:1200px;
@@ -235,6 +307,10 @@
       flex-direction:column;
       min-height: 420px;
     }
+    html[data-theme="light"] .column{
+      background: rgba(255,255,255,.65);
+    }
+
     .colhead{
       padding:14px 14px 10px 14px;
       display:flex;
@@ -243,6 +319,10 @@
       background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,0));
       border-bottom:1px solid rgba(255,255,255,.06);
     }
+    html[data-theme="light"] .colhead{
+      border-bottom:1px solid rgba(0,0,0,.06);
+    }
+
     .colname{ display:flex; align-items:center; gap:10px; font-weight:600; font-size:14px; }
     .badge{
       font-size:12px;
@@ -252,6 +332,11 @@
       padding:2px 8px;
       border-radius:999px;
     }
+    html[data-theme="light"] .badge{
+      background: rgba(0,0,0,.03);
+      border:1px solid rgba(0,0,0,.08);
+    }
+
     .dropzone{
       padding: 12px;
       display:flex;
@@ -273,6 +358,10 @@
       cursor: grab;
       user-select:none;
     }
+    html[data-theme="light"] .card{
+      background: linear-gradient(180deg, rgba(255,255,255,.95), rgba(255,255,255,.75));
+    }
+
     .card:active{ cursor: grabbing; }
     .cardtitle{
       margin:0 0 6px 0;
@@ -295,6 +384,11 @@
       border:1px solid rgba(255,255,255,.1);
       background: rgba(0,0,0,.12);
     }
+    html[data-theme="light"] .pill{
+      border:1px solid rgba(0,0,0,.08);
+      background: rgba(0,0,0,.03);
+    }
+
     .actions{ display:flex; gap:6px; align-items:center; }
     .iconbtn{
       border:1px solid rgba(255,255,255,.12);
@@ -304,14 +398,14 @@
       font-size:12px;
       cursor:pointer;
     }
+    html[data-theme="light"] .iconbtn{
+      border:1px solid rgba(0,0,0,.10);
+      background: rgba(0,0,0,.03);
+    }
     .iconbtn:hover{ border-color: rgba(106,169,255,.55); }
     .iconbtn.delete:hover{ border-color: var(--danger); }
 
-    .disabled{
-      opacity:.55;
-      pointer-events:none;
-      filter: grayscale(.2);
-    }
+    .disabled{ opacity:.55; pointer-events:none; filter: grayscale(.2); }
 
     /* Admin panel */
     .panel{
@@ -323,6 +417,7 @@
       box-shadow: var(--shadow);
       display:none;
     }
+    html[data-theme="light"] .panel{ background: rgba(255,255,255,.75); }
     .panel.open{ display:block; }
     .panel h2{ margin:0 0 8px 0; font-size:14px; }
     .userbox{
@@ -331,24 +426,24 @@
       border:1px solid rgba(255,255,255,.08);
       border-radius:12px;
     }
+    html[data-theme="light"] .userbox{ border:1px solid rgba(0,0,0,.08); }
     .boardbox{
       margin:8px 0;
       padding:8px;
       border:1px dashed rgba(255,255,255,.12);
       border-radius:12px;
     }
+    html[data-theme="light"] .boardbox{ border:1px dashed rgba(0,0,0,.12); }
   </style>
 </head>
 <body>
 
-  <!-- TOP BAR -->
   <div class="topbar">
     <div class="title">
       <h1>Kanban Board</h1>
-      <p class="subtitle">Drag & drop tasks. Sync across devices. Admin can view everyone.</p>
+      <p class="subtitle">Drag & drop tasks. Sync across devices. Theme toggle in profile.</p>
     </div>
 
-    <!-- Profile dropdown -->
     <div class="profileWrap">
       <div id="profileBtn" class="pillBtn" aria-label="Profile menu">
         <div class="avatar" id="avatar">?</div>
@@ -369,7 +464,12 @@
         </div>
 
         <div class="menuBody">
-          <!-- Signed OUT panel -->
+          <!-- Theme toggle -->
+          <div class="row">
+            <button id="themeBtn">Switch to Light</button>
+          </div>
+
+          <!-- Signed OUT -->
           <div id="signedOutPanel">
             <div class="tabs">
               <div id="tabSignIn" class="tab active">Sign In</div>
@@ -393,7 +493,7 @@
             </div>
           </div>
 
-          <!-- Signed IN panel -->
+          <!-- Signed IN -->
           <div id="signedInPanel" style="display:none;">
             <div class="fineprint" style="margin-bottom:6px;">
               <div><span class="muted">Email:</span> <span id="profileEmail"></span></div>
@@ -411,7 +511,7 @@
             </div>
 
             <div class="fineprint">
-              Board name comes from URL: <code>?board=default</code> or <code>?board=work</code>
+              Board name from URL: <code>?board=default</code> or <code>?board=work</code>
             </div>
           </div>
         </div>
@@ -419,7 +519,7 @@
     </div>
   </div>
 
-  <!-- CONTROLS -->
+  <!-- CONTROLS: import/export to RIGHT -->
   <div class="controls">
     <input id="taskInput" type="text" placeholder="New task (e.g., Fix login bug)" />
     <select id="statusSelect">
@@ -431,7 +531,7 @@
     <button id="addBtn">Add</button>
     <button id="clearBtn" class="danger">Clear</button>
 
-    <span style="width:10px;"></span>
+    <div class="spacer"></div>
 
     <button id="exportBtn">Export JSON</button>
     <button id="importBtn">Import JSON</button>
@@ -443,24 +543,20 @@
     <div id="syncLabel">Sync: signed out</div>
   </div>
 
-  <!-- BOARD -->
   <div class="wrap">
     <div class="board disabled" id="board">
       <div class="column" data-status="todo">
         <div class="colhead"><div class="colname">To Do <span class="badge" id="count-todo">0</span></div></div>
         <div class="dropzone" id="zone-todo"></div>
       </div>
-
       <div class="column" data-status="inprogress">
         <div class="colhead"><div class="colname">In Progress <span class="badge" id="count-inprogress">0</span></div></div>
         <div class="dropzone" id="zone-inprogress"></div>
       </div>
-
       <div class="column" data-status="review">
         <div class="colhead"><div class="colname">Review <span class="badge" id="count-review">0</span></div></div>
         <div class="dropzone" id="zone-review"></div>
       </div>
-
       <div class="column" data-status="done">
         <div class="colhead"><div class="colname">Done <span class="badge" id="count-done">0</span></div></div>
         <div class="dropzone" id="zone-done"></div>
@@ -490,7 +586,18 @@
       query
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
-    // ---------- Load Firebase config from config.json ----------
+    // ---------- Theme ----------
+    const THEME_KEY = "kanban_theme";
+    function applyTheme(theme){
+      document.documentElement.setAttribute("data-theme", theme);
+      localStorage.setItem(THEME_KEY, theme);
+      updateThemeButton();
+    }
+    function getTheme(){
+      return localStorage.getItem(THEME_KEY) || "dark";
+    }
+
+    // ---------- Load Firebase config ----------
     async function loadFirebaseConfig() {
       const res = await fetch("./config.json", { cache: "no-store" });
       if (!res.ok) throw new Error("config.json not found. Put it next to index.html");
@@ -525,6 +632,17 @@
     const whoHint = $("#whoHint");
     const authTag = $("#authTag");
     const adminTag = $("#adminTag");
+
+    const themeBtn = $("#themeBtn");
+    function updateThemeButton(){
+      const t = document.documentElement.getAttribute("data-theme") || "dark";
+      themeBtn.textContent = (t === "dark") ? "Switch to Light" : "Switch to Dark";
+    }
+    themeBtn.addEventListener("click", () => {
+      const t = document.documentElement.getAttribute("data-theme") || "dark";
+      applyTheme(t === "dark" ? "light" : "dark");
+    });
+    applyTheme(getTheme()); // init
 
     const signedOutPanel = $("#signedOutPanel");
     const signedInPanel = $("#signedInPanel");
@@ -565,15 +683,31 @@
     let currentUser = null;
     let unsubscribeBoard = null;
     let isAdmin = false;
-
     /** @type {{id:string,title:string,status:'todo'|'inprogress'|'review'|'done',createdAt:number}[]} */
     let tasks = [];
+
+    // ---------- Dropdown open/close ----------
+    function setMenuOpen(open) { menu.classList.toggle("open", open); }
+    profileBtn.addEventListener("click", () => setMenuOpen(!menu.classList.contains("open")));
+    closeMenuBtn.addEventListener("click", () => setMenuOpen(false));
+    document.addEventListener("click", (e) => {
+      if (!e.target.closest(".profileWrap")) setMenuOpen(false);
+    });
+
+    // ---------- Tabs ----------
+    function setAuthTab(which) {
+      const signIn = which === "in";
+      tabSignIn.classList.toggle("active", signIn);
+      tabSignUp.classList.toggle("active", !signIn);
+      setTimeout(() => emailEl?.focus(), 0);
+    }
+    tabSignIn.addEventListener("click", () => setAuthTab("in"));
+    tabSignUp.addEventListener("click", () => setAuthTab("up"));
 
     // ---------- Helpers ----------
     function uid() {
       return (crypto?.randomUUID?.() ?? ("id-" + Math.random().toString(16).slice(2))) + "-" + Date.now();
     }
-
     function escapeHtml(s) {
       return String(s)
         .replaceAll("&","&amp;")
@@ -582,16 +716,10 @@
         .replaceAll('"',"&quot;")
         .replaceAll("'","&#039;");
     }
-
     function formatDate(ts) {
       const d = new Date(ts);
       return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "2-digit" });
     }
-
-    function setMenuOpen(open) {
-      menu.classList.toggle("open", open);
-    }
-
     function initialsFromEmail(email) {
       const s = (email || "").trim();
       if (!s) return "?";
@@ -601,28 +729,7 @@
       return (name.slice(0,2) || "?").toUpperCase();
     }
 
-    // Click outside to close dropdown
-    document.addEventListener("click", (e) => {
-      const clickedInside = e.target.closest(".profileWrap");
-      if (!clickedInside) setMenuOpen(false);
-    });
-
-    profileBtn.addEventListener("click", () => setMenuOpen(!menu.classList.contains("open")));
-    closeMenuBtn.addEventListener("click", () => setMenuOpen(false));
-
-    // Tabs: show correct primary button emphasis (UI only)
-    function setAuthTab(which) {
-      const signIn = which === "in";
-      tabSignIn.classList.toggle("active", signIn);
-      tabSignUp.classList.toggle("active", !signIn);
-
-      // minor UX: focus
-      setTimeout(() => emailEl?.focus(), 0);
-    }
-    tabSignIn.addEventListener("click", () => setAuthTab("in"));
-    tabSignUp.addEventListener("click", () => setAuthTab("up"));
-
-    // ---------- Board rendering ----------
+    // ---------- Render ----------
     function updateCounts() {
       const counts = { todo: 0, inprogress: 0, review: 0, done: 0 };
       for (const t of tasks) counts[t.status]++;
@@ -631,11 +738,9 @@
       $("#count-review").textContent = counts.review;
       $("#count-done").textContent = counts.done;
     }
-
     function clearZones() {
       Object.values(zones).forEach(z => z.innerHTML = "");
     }
-
     function createCard(task) {
       const card = document.createElement("div");
       card.className = "card";
@@ -656,7 +761,6 @@
           <span class="pill">Drag me</span>
         </div>
       `;
-
       card.querySelector(".cardtitle").textContent = task.title;
 
       card.addEventListener("click", async (e) => {
@@ -688,7 +792,6 @@
 
       return card;
     }
-
     function render() {
       clearZones();
       const byCol = { todo: [], inprogress: [], review: [], done: [] };
@@ -701,19 +804,14 @@
     }
 
     // ---------- Firestore paths ----------
-    function boardDocRefForUser(userUid) {
-      return doc(db, "users", userUid, "boards", boardId);
-    }
-    function boardDocRef() {
-      return boardDocRefForUser(currentUser.uid);
-    }
+    function boardDocRefForUser(userUid) { return doc(db, "users", userUid, "boards", boardId); }
+    function boardDocRef() { return boardDocRefForUser(currentUser.uid); }
 
     async function ensureBoardDocExists() {
       const ref = boardDocRef();
       const snap = await getDoc(ref);
       if (!snap.exists()) await setDoc(ref, { tasks: [], createdAt: Date.now() });
     }
-
     async function saveCloud() {
       if (!currentUser) return;
       setSync("saving…");
@@ -727,14 +825,12 @@
       const title = taskInput.value.trim();
       const status = statusSelect.value;
       if (!title) return;
-
       tasks.push({ id: uid(), title, status, createdAt: Date.now() });
       taskInput.value = "";
       await saveCloud();
       render();
       taskInput.focus();
     }
-
     addBtn.addEventListener("click", addTask);
     taskInput.addEventListener("keydown", (e) => { if (e.key === "Enter") addTask(); });
 
@@ -769,7 +865,7 @@
       });
     });
 
-    // Import/Export
+    // Export / Import JSON
     exportBtn.addEventListener("click", () => {
       if (!currentUser) return;
       const payload = { boardId, exportedAt: new Date().toISOString(), userUid: currentUser.uid, tasks };
@@ -781,7 +877,7 @@
       URL.revokeObjectURL(a.href);
     });
 
-    importBtn.addEventListener("click", () => { if (currentUser) importFile.click(); });
+    importBtn.addEventListener("click", () => { if (currentUser) $("#importFile").click(); });
 
     function normalizeImportedTasks(arr) {
       const allowed = new Set(["todo","inprogress","review","done"]);
@@ -844,7 +940,6 @@
         const grouped = new Map(); // userId -> [{boardId,tasks}]
         snap.forEach(docSnap => {
           const parts = docSnap.ref.path.split("/");
-          // users/{uid}/boards/{boardId}
           if (parts.length < 4) return;
           const userId = parts[1];
           const bId = parts[3];
@@ -885,8 +980,7 @@
         setSync("admin view");
       } catch (e) {
         console.error("Admin read failed:", e);
-        adminPanel.innerHTML = `<h2>Admin View</h2>
-          <div class="fineprint">Error: ${escapeHtml(e.message || String(e))}</div>`;
+        adminPanel.innerHTML = `<h2>Admin View</h2><div class="fineprint">Error: ${escapeHtml(e.message || String(e))}</div>`;
         setSync("admin error");
       }
     }
@@ -951,7 +1045,6 @@
       currentUser = user;
       isAdmin = false;
 
-      // reset view
       adminPanel.classList.remove("open");
       boardEl.style.display = "";
       myViewBtn.style.display = "none";
@@ -964,7 +1057,6 @@
         boardEl.classList.add("disabled");
         setSync("signed out");
 
-        // profile button
         avatarEl.textContent = "?";
         whoName.textContent = "Guest";
         whoHint.textContent = "Sign in";
@@ -976,7 +1068,6 @@
         return;
       }
 
-      // signed in
       boardEl.classList.remove("disabled");
       whoName.textContent = user.email || "Signed in";
       whoHint.textContent = "Profile";
