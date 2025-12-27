@@ -1,0 +1,465 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Kanban Board (Drag & Drop + Firebase Sync)</title>
+  <style>
+    :root{
+      --bg:#0b1220;
+      --border:#223055;
+      --text:#e7ecff;
+      --muted:#aab3d6;
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --radius:16px;
+      --gap:14px;
+      --cardBorder:#2a3b67;
+    }
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      background: radial-gradient(1200px 600px at 20% 0%, #13224b 0%, transparent 60%),
+                  radial-gradient(900px 600px at 90% 10%, #1c2a5f 0%, transparent 60%),
+                  var(--bg);
+      color:var(--text);
+      min-height:100vh;
+      padding:24px;
+    }
+    header{
+      max-width:1200px;
+      margin:0 auto 18px auto;
+      display:flex;
+      flex-wrap:wrap;
+      gap:12px;
+      align-items:center;
+      justify-content:space-between;
+    }
+    .title{ display:flex; flex-direction:column; gap:4px; }
+    h1{ margin:0; font-size:20px; letter-spacing:.2px; }
+    .subtitle{ margin:0; color:var(--muted); font-size:13px; }
+
+    .addbar{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      background:rgba(255,255,255,.03);
+      border:1px solid var(--border);
+      padding:10px;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      flex-wrap:wrap;
+    }
+    input, select, button{
+      border-radius:12px;
+      border:1px solid var(--border);
+      background:rgba(255,255,255,.03);
+      color:var(--text);
+      padding:10px 12px;
+      outline:none;
+      font-size:14px;
+    }
+    input::placeholder{ color:#7f89b3; }
+    button{
+      cursor:pointer;
+      border-color:#2c4278;
+      background: linear-gradient(180deg, rgba(106,169,255,.18), rgba(106,169,255,.06));
+    }
+    button:hover{ border-color:#3e63b7; }
+
+    .wrap{ max-width:1200px; margin:0 auto; }
+    .board{
+      display:grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: var(--gap);
+    }
+    @media (max-width: 1100px){ .board{ grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 640px){
+      .board{ grid-template-columns: 1fr; }
+      body{ padding:16px; }
+      .addbar{ width:100%; }
+      input{ min-width: 170px; }
+    }
+
+    .column{
+      background: rgba(255,255,255,.03);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+      min-height: 420px;
+    }
+    .colhead{
+      padding:14px 14px 10px 14px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,0));
+      border-bottom:1px solid rgba(255,255,255,.06);
+    }
+    .colname{ display:flex; align-items:center; gap:10px; font-weight:600; font-size:14px; }
+    .badge{
+      font-size:12px;
+      color:var(--muted);
+      background: rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.08);
+      padding:2px 8px;
+      border-radius:999px;
+    }
+
+    .dropzone{
+      padding: 12px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      flex:1;
+    }
+    .column.dragover{
+      outline:2px dashed rgba(106,169,255,.55);
+      outline-offset:-8px;
+      background: rgba(106,169,255,.06);
+    }
+
+    .card{
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+      border:1px solid var(--cardBorder);
+      border-radius: 14px;
+      padding: 12px;
+      cursor: grab;
+      user-select:none;
+    }
+    .card:active{ cursor: grabbing; }
+    .cardtitle{
+      margin:0 0 6px 0;
+      font-size:14px;
+      font-weight:600;
+      line-height:1.25;
+      word-break: break-word;
+    }
+    .meta{
+      display:flex;
+      gap:8px;
+      align-items:center;
+      justify-content:space-between;
+      color:var(--muted);
+      font-size:12px;
+    }
+    .pill{
+      padding:2px 8px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.1);
+      background: rgba(0,0,0,.12);
+    }
+    .actions{ display:flex; gap:6px; align-items:center; }
+    .iconbtn{
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.04);
+      padding:4px 8px;
+      border-radius:10px;
+      font-size:12px;
+      cursor:pointer;
+    }
+    .iconbtn:hover{ border-color: rgba(106,169,255,.55); }
+    .iconbtn.delete:hover{ border-color: rgba(255,106,106,.6); }
+
+    .statusbar{
+      max-width:1200px;
+      margin:0 auto 12px auto;
+      color:var(--muted);
+      font-size:12px;
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    code{ color:#cfe1ff; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="title">
+      <h1>Kanban Board</h1>
+      <p class="subtitle">Add tasks and drag cards between statuses. Synced with Firebase Firestore.</p>
+    </div>
+
+    <div class="addbar">
+      <input id="taskInput" type="text" placeholder="New task (e.g., Fix login bug)" />
+      <select id="statusSelect">
+        <option value="todo">To Do</option>
+        <option value="inprogress">In Progress</option>
+        <option value="review">Review</option>
+        <option value="done">Done</option>
+      </select>
+      <button id="addBtn">Add</button>
+      <button id="clearBtn" title="Remove all tasks"
+        style="border-color:rgba(255,106,106,.45);background:rgba(255,106,106,.08);">
+        Clear
+      </button>
+    </div>
+  </header>
+
+  <div class="statusbar">
+    <div>Board: <code id="boardIdLabel"></code></div>
+    <div id="syncLabel">Sync: connecting…</div>
+  </div>
+
+  <div class="wrap">
+    <div class="board" id="board">
+      <div class="column" data-status="todo">
+        <div class="colhead">
+          <div class="colname">To Do <span class="badge" id="count-todo">0</span></div>
+        </div>
+        <div class="dropzone" id="zone-todo"></div>
+      </div>
+
+      <div class="column" data-status="inprogress">
+        <div class="colhead">
+          <div class="colname">In Progress <span class="badge" id="count-inprogress">0</span></div>
+        </div>
+        <div class="dropzone" id="zone-inprogress"></div>
+      </div>
+
+      <div class="column" data-status="review">
+        <div class="colhead">
+          <div class="colname">Review <span class="badge" id="count-review">0</span></div>
+        </div>
+        <div class="dropzone" id="zone-review"></div>
+      </div>
+
+      <div class="column" data-status="done">
+        <div class="colhead">
+          <div class="colname">Done <span class="badge" id="count-done">0</span></div>
+        </div>
+        <div class="dropzone" id="zone-done"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ✅ Everything (Firebase + Kanban) in ONE module script -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+    import { getFirestore, doc, onSnapshot, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+    // =========================
+    // 1) PASTE YOUR FIREBASE CONFIG HERE
+    // Firebase Console → Project settings → Your apps → Web app
+    // =========================
+    const firebaseConfig = {
+      apiKey: "AIzaSyC-OqHdrsG2L-blbs-R9OSf19qf-XHYiFo",
+      authDomain: "kanban-29350.firebaseapp.com",
+      projectId: "kanban-29350",
+      storageBucket: "kanban-29350.firebasestorage.app",
+      messagingSenderId: "696423970590",
+      appId: "1:696423970590:web:ea0a5d4f6dee6266ea7b0f",
+      measurementId: "G-QK2JE3CEDF"
+    };
+
+    // =========================
+    // 2) Firestore setup
+    // =========================
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const params = new URLSearchParams(location.search);
+    const boardId = (params.get("board") || "default").trim();
+    document.getElementById("boardIdLabel").textContent = boardId;
+
+    // Store entire board in ONE document:
+    // collection: boards
+    // documentId: boardId
+    const boardRef = doc(db, "boards", boardId);
+
+    const syncLabel = document.getElementById("syncLabel");
+    const setSync = (txt) => (syncLabel.textContent = "Sync: " + txt);
+
+    /** @type {{id:string,title:string,status:'todo'|'inprogress'|'review'|'done',createdAt:number}[]} */
+    let tasks = [];
+
+    function uid() {
+      return (crypto?.randomUUID?.() ?? ("id-" + Math.random().toString(16).slice(2))) + "-" + Date.now();
+    }
+
+    async function saveCloud() {
+      setSync("saving…");
+      await setDoc(boardRef, { tasks, updatedAt: Date.now() }, { merge: true });
+      setSync("saved");
+    }
+
+    // Create doc once if missing
+    const initial = await getDoc(boardRef);
+    if (!initial.exists()) {
+      await setDoc(boardRef, { tasks: [], createdAt: Date.now() });
+    }
+
+    // Live updates (any device changes → update UI here)
+    onSnapshot(boardRef, (snap) => {
+      const data = snap.data();
+      tasks = Array.isArray(data?.tasks) ? data.tasks : [];
+      render();
+      setSync("live");
+    }, (err) => {
+      console.error(err);
+      setSync("error (check console)");
+    });
+
+    // =========================
+    // 3) UI logic (your original logic, minimal changes)
+    // =========================
+    const $ = (sel) => document.querySelector(sel);
+    const taskInput = $("#taskInput");
+    const statusSelect = $("#statusSelect");
+    const addBtn = $("#addBtn");
+    const clearBtn = $("#clearBtn");
+
+    const zones = {
+      todo: $("#zone-todo"),
+      inprogress: $("#zone-inprogress"),
+      review: $("#zone-review"),
+      done: $("#zone-done"),
+    };
+
+    function formatDate(ts) {
+      const d = new Date(ts);
+      return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "2-digit" });
+    }
+
+    function updateCounts() {
+      const counts = { todo: 0, inprogress: 0, review: 0, done: 0 };
+      for (const t of tasks) counts[t.status]++;
+
+      $("#count-todo").textContent = counts.todo;
+      $("#count-inprogress").textContent = counts.inprogress;
+      $("#count-review").textContent = counts.review;
+      $("#count-done").textContent = counts.done;
+    }
+
+    function clearZones() {
+      Object.values(zones).forEach(z => z.innerHTML = "");
+    }
+
+    function createCard(task) {
+      const card = document.createElement("div");
+      card.className = "card";
+      card.draggable = true;
+      card.dataset.id = task.id;
+
+      card.innerHTML = `
+        <p class="cardtitle"></p>
+        <div class="meta">
+          <span class="pill">${task.status}</span>
+          <div class="actions">
+            <button class="iconbtn" data-action="edit" title="Edit">Edit</button>
+            <button class="iconbtn delete" data-action="delete" title="Delete">Delete</button>
+          </div>
+        </div>
+        <div class="meta" style="margin-top:8px;">
+          <span>Created: ${formatDate(task.createdAt)}</span>
+          <span class="pill">Drag me</span>
+        </div>
+      `;
+
+      card.querySelector(".cardtitle").textContent = task.title;
+
+      card.addEventListener("click", async (e) => {
+        const btn = e.target.closest("button");
+        if (!btn) return;
+        const action = btn.dataset.action;
+
+        if (action === "delete") {
+          tasks = tasks.filter(t => t.id !== task.id);
+          await saveCloud();
+          render();
+        } else if (action === "edit") {
+          const next = prompt("Edit task title:", task.title);
+          if (next && next.trim()) {
+            const t = tasks.find(t => t.id === task.id);
+            if (!t) return;
+            t.title = next.trim();
+            await saveCloud();
+            render();
+          }
+        }
+      });
+
+      card.addEventListener("dragstart", (e) => {
+        e.dataTransfer.setData("text/plain", task.id);
+        e.dataTransfer.effectAllowed = "move";
+        card.style.opacity = "0.6";
+      });
+
+      card.addEventListener("dragend", () => {
+        card.style.opacity = "1";
+      });
+
+      return card;
+    }
+
+    function render() {
+      clearZones();
+
+      const byCol = { todo: [], inprogress: [], review: [], done: [] };
+      for (const t of tasks) byCol[t.status]?.push(t);
+
+      for (const k of Object.keys(byCol)) {
+        byCol[k].sort((a,b) => a.createdAt - b.createdAt);
+        for (const t of byCol[k]) zones[k].appendChild(createCard(t));
+      }
+
+      updateCounts();
+    }
+
+    async function addTask() {
+      const title = taskInput.value.trim();
+      const status = statusSelect.value;
+      if (!title) return;
+
+      tasks.push({ id: uid(), title, status, createdAt: Date.now() });
+      taskInput.value = "";
+      await saveCloud();
+      render();
+      taskInput.focus();
+    }
+
+    addBtn.addEventListener("click", addTask);
+    taskInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") addTask();
+    });
+
+    clearBtn.addEventListener("click", async () => {
+      if (!confirm("Clear all tasks on this board?")) return;
+      tasks = [];
+      await saveCloud();
+      render();
+    });
+
+    document.querySelectorAll(".column").forEach(col => {
+      const status = col.dataset.status;
+
+      col.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        col.classList.add("dragover");
+        e.dataTransfer.dropEffect = "move";
+      });
+
+      col.addEventListener("dragleave", () => {
+        col.classList.remove("dragover");
+      });
+
+      col.addEventListener("drop", async (e) => {
+        e.preventDefault();
+        col.classList.remove("dragover");
+
+        const id = e.dataTransfer.getData("text/plain");
+        const t = tasks.find(x => x.id === id);
+        if (!t) return;
+
+        t.status = status;
+        await saveCloud();
+        render();
+      });
+    });
+  </script>
+</body>
+</html>
