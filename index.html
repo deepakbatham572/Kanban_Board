@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Kanban Board (Drag & Drop + Firebase Sync)</title>
+  <title>Kanban Board (Auth + Admin + Sync + Import/Export)</title>
   <style>
     :root{
       --bg:#0b1220;
@@ -26,9 +26,10 @@
       min-height:100vh;
       padding:24px;
     }
+
     header{
       max-width:1200px;
-      margin:0 auto 18px auto;
+      margin:0 auto 14px auto;
       display:flex;
       flex-wrap:wrap;
       gap:12px;
@@ -66,6 +67,10 @@
       background: linear-gradient(180deg, rgba(106,169,255,.18), rgba(106,169,255,.06));
     }
     button:hover{ border-color:#3e63b7; }
+    button.danger{
+      border-color:rgba(255,106,106,.45);
+      background:rgba(255,106,106,.08);
+    }
 
     .wrap{ max-width:1200px; margin:0 auto; }
     .board{
@@ -175,16 +180,66 @@
       flex-wrap:wrap;
     }
     code{ color:#cfe1ff; }
+
+    .disabled{
+      opacity:.55;
+      pointer-events:none;
+      filter: grayscale(.2);
+    }
+    .small{
+      font-size:12px;
+      color:var(--muted);
+    }
+
+    /* Admin panel */
+    .panel{
+      margin-top:14px;
+      padding:12px;
+      border:1px solid var(--border);
+      border-radius: var(--radius);
+      background: rgba(255,255,255,.03);
+      box-shadow: var(--shadow);
+    }
+    .panel h2{
+      margin:0 0 8px 0;
+      font-size:14px;
+    }
+    .userbox{
+      margin:10px 0;
+      padding:10px;
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:12px;
+    }
+    .boardbox{
+      margin:8px 0;
+      padding:8px;
+      border:1px dashed rgba(255,255,255,.12);
+      border-radius:12px;
+    }
+    .muted{ color:var(--muted); }
   </style>
 </head>
 <body>
   <header>
     <div class="title">
       <h1>Kanban Board</h1>
-      <p class="subtitle">Add tasks and drag cards between statuses. Synced with Firebase Firestore.</p>
+      <p class="subtitle">Email/Password login + per-user boards + Admin View All + Import/Export JSON</p>
     </div>
 
     <div class="addbar">
+      <!-- AUTH -->
+      <input id="email" type="email" placeholder="Email" style="min-width:220px;" />
+      <input id="password" type="password" placeholder="Password" style="min-width:200px;" />
+      <button id="signupBtn">Sign up</button>
+      <button id="signinBtn">Sign in</button>
+      <button id="logoutBtn" class="danger" style="display:none;">Logout</button>
+
+      <span id="userLabel" class="small"></span>
+      <span id="uidLabel" class="small"></span>
+
+      <span style="width:14px;"></span>
+
+      <!-- TASK INPUT -->
       <input id="taskInput" type="text" placeholder="New task (e.g., Fix login bug)" />
       <select id="statusSelect">
         <option value="todo">To Do</option>
@@ -193,20 +248,26 @@
         <option value="done">Done</option>
       </select>
       <button id="addBtn">Add</button>
-      <button id="clearBtn" title="Remove all tasks"
-        style="border-color:rgba(255,106,106,.45);background:rgba(255,106,106,.08);">
-        Clear
-      </button>
+      <button id="clearBtn" class="danger" title="Remove all tasks">Clear</button>
+
+      <!-- IMPORT/EXPORT -->
+      <button id="exportBtn" title="Download tasks as JSON">Export JSON</button>
+      <button id="importBtn" title="Load tasks from JSON (replaces current board)">Import JSON</button>
+      <input id="importFile" type="file" accept="application/json" style="display:none" />
+
+      <!-- ADMIN -->
+      <button id="adminViewBtn" style="display:none;">Admin: View All</button>
+      <button id="myViewBtn" style="display:none;">My Board</button>
     </div>
   </header>
 
   <div class="statusbar">
     <div>Board: <code id="boardIdLabel"></code></div>
-    <div id="syncLabel">Sync: connecting…</div>
+    <div id="syncLabel">Sync: signed out</div>
   </div>
 
   <div class="wrap">
-    <div class="board" id="board">
+    <div class="board disabled" id="board">
       <div class="column" data-status="todo">
         <div class="colhead">
           <div class="colname">To Do <span class="badge" id="count-todo">0</span></div>
@@ -235,16 +296,35 @@
         <div class="dropzone" id="zone-done"></div>
       </div>
     </div>
+
+    <!-- Admin panel -->
+    <div id="adminPanel" class="panel" style="display:none;"></div>
   </div>
 
-  <!-- ✅ Everything (Firebase + Kanban) in ONE module script -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-    import { getFirestore, doc, onSnapshot, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+    import {
+      getAuth,
+      createUserWithEmailAndPassword,
+      signInWithEmailAndPassword,
+      onAuthStateChanged,
+      signOut
+    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+
+    import {
+      getFirestore,
+      doc,
+      onSnapshot,
+      setDoc,
+      getDoc,
+      collectionGroup,
+      getDocs,
+      query
+    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
     // =========================
-    // 1) PASTE YOUR FIREBASE CONFIG HERE
-    // Firebase Console → Project settings → Your apps → Web app
+    // 🔁 PASTE YOUR firebaseConfig HERE
     // =========================
     const firebaseConfig = {
       apiKey: "AIzaSyC-OqHdrsG2L-blbs-R9OSf19qf-XHYiFo",
@@ -256,62 +336,43 @@
       measurementId: "G-QK2JE3CEDF"
     };
 
-    // =========================
-    // 2) Firestore setup
-    // =========================
+    // Init
     const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
     const db = getFirestore(app);
 
+    // Board id from URL
     const params = new URLSearchParams(location.search);
     const boardId = (params.get("board") || "default").trim();
     document.getElementById("boardIdLabel").textContent = boardId;
 
-    // Store entire board in ONE document:
-    // collection: boards
-    // documentId: boardId
-    const boardRef = doc(db, "boards", boardId);
+    // UI refs
+    const $ = (sel) => document.querySelector(sel);
 
-    const syncLabel = document.getElementById("syncLabel");
+    const boardEl = $("#board");
+    const adminPanel = $("#adminPanel");
+    const syncLabel = $("#syncLabel");
     const setSync = (txt) => (syncLabel.textContent = "Sync: " + txt);
 
-    /** @type {{id:string,title:string,status:'todo'|'inprogress'|'review'|'done',createdAt:number}[]} */
-    let tasks = [];
+    const emailEl = $("#email");
+    const passEl = $("#password");
+    const signupBtn = $("#signupBtn");
+    const signinBtn = $("#signinBtn");
+    const logoutBtn = $("#logoutBtn");
+    const userLabel = $("#userLabel");
+    const uidLabel = $("#uidLabel");
 
-    function uid() {
-      return (crypto?.randomUUID?.() ?? ("id-" + Math.random().toString(16).slice(2))) + "-" + Date.now();
-    }
-
-    async function saveCloud() {
-      setSync("saving…");
-      await setDoc(boardRef, { tasks, updatedAt: Date.now() }, { merge: true });
-      setSync("saved");
-    }
-
-    // Create doc once if missing
-    const initial = await getDoc(boardRef);
-    if (!initial.exists()) {
-      await setDoc(boardRef, { tasks: [], createdAt: Date.now() });
-    }
-
-    // Live updates (any device changes → update UI here)
-    onSnapshot(boardRef, (snap) => {
-      const data = snap.data();
-      tasks = Array.isArray(data?.tasks) ? data.tasks : [];
-      render();
-      setSync("live");
-    }, (err) => {
-      console.error(err);
-      setSync("error (check console)");
-    });
-
-    // =========================
-    // 3) UI logic (your original logic, minimal changes)
-    // =========================
-    const $ = (sel) => document.querySelector(sel);
     const taskInput = $("#taskInput");
     const statusSelect = $("#statusSelect");
     const addBtn = $("#addBtn");
     const clearBtn = $("#clearBtn");
+
+    const exportBtn = $("#exportBtn");
+    const importBtn = $("#importBtn");
+    const importFile = $("#importFile");
+
+    const adminViewBtn = $("#adminViewBtn");
+    const myViewBtn = $("#myViewBtn");
 
     const zones = {
       todo: $("#zone-todo"),
@@ -319,6 +380,27 @@
       review: $("#zone-review"),
       done: $("#zone-done"),
     };
+
+    /** @type {{id:string,title:string,status:'todo'|'inprogress'|'review'|'done',createdAt:number}[]} */
+    let tasks = [];
+
+    let currentUser = null;
+    let unsubscribeBoard = null;
+    let isAdmin = false;
+
+    // Helpers
+    function uid() {
+      return (crypto?.randomUUID?.() ?? ("id-" + Math.random().toString(16).slice(2))) + "-" + Date.now();
+    }
+
+    function escapeHtml(s) {
+      return String(s)
+        .replaceAll("&","&amp;")
+        .replaceAll("<","&lt;")
+        .replaceAll(">","&gt;")
+        .replaceAll('"',"&quot;")
+        .replaceAll("'","&#039;");
+    }
 
     function formatDate(ts) {
       const d = new Date(ts);
@@ -337,6 +419,27 @@
 
     function clearZones() {
       Object.values(zones).forEach(z => z.innerHTML = "");
+    }
+
+    function normalizeImportedTasks(arr) {
+      const allowed = new Set(["todo", "inprogress", "review", "done"]);
+      const out = [];
+      for (const item of arr) {
+        if (!item || typeof item !== "object") continue;
+        const title = String(item.title ?? "").trim();
+        const status = String(item.status ?? "todo");
+        const createdAt = Number(item.createdAt ?? Date.now());
+        const id = String(item.id ?? uid());
+        if (!title) continue;
+        out.push({
+          id,
+          title,
+          status: allowed.has(status) ? status : "todo",
+          createdAt: Number.isFinite(createdAt) ? createdAt : Date.now()
+        });
+      }
+      out.sort((a,b) => a.createdAt - b.createdAt);
+      return out;
     }
 
     function createCard(task) {
@@ -365,6 +468,7 @@
       card.addEventListener("click", async (e) => {
         const btn = e.target.closest("button");
         if (!btn) return;
+
         const action = btn.dataset.action;
 
         if (action === "delete") {
@@ -410,7 +514,32 @@
       updateCounts();
     }
 
+    function boardDocRefForUser(userUid) {
+      return doc(db, "users", userUid, "boards", boardId);
+    }
+
+    function boardDocRef() {
+      return boardDocRefForUser(currentUser.uid);
+    }
+
+    async function ensureBoardDocExists() {
+      const ref = boardDocRef();
+      const snap = await getDoc(ref);
+      if (!snap.exists()) {
+        await setDoc(ref, { tasks: [], createdAt: Date.now() });
+      }
+    }
+
+    async function saveCloud() {
+      if (!currentUser) return;
+      setSync("saving…");
+      await setDoc(boardDocRef(), { tasks, updatedAt: Date.now() }, { merge: true });
+      setSync("saved");
+    }
+
+    // TASK add/clear
     async function addTask() {
+      if (!currentUser) return;
       const title = taskInput.value.trim();
       const status = statusSelect.value;
       if (!title) return;
@@ -428,26 +557,28 @@
     });
 
     clearBtn.addEventListener("click", async () => {
+      if (!currentUser) return;
       if (!confirm("Clear all tasks on this board?")) return;
       tasks = [];
       await saveCloud();
       render();
     });
 
+    // Drag & drop
     document.querySelectorAll(".column").forEach(col => {
       const status = col.dataset.status;
 
       col.addEventListener("dragover", (e) => {
+        if (!currentUser) return;
         e.preventDefault();
         col.classList.add("dragover");
         e.dataTransfer.dropEffect = "move";
       });
 
-      col.addEventListener("dragleave", () => {
-        col.classList.remove("dragover");
-      });
+      col.addEventListener("dragleave", () => col.classList.remove("dragover"));
 
       col.addEventListener("drop", async (e) => {
+        if (!currentUser) return;
         e.preventDefault();
         col.classList.remove("dragover");
 
@@ -460,6 +591,219 @@
         render();
       });
     });
+
+    // Export JSON (current user's board)
+    exportBtn.addEventListener("click", () => {
+      if (!currentUser) return;
+      const payload = {
+        boardId,
+        exportedAt: new Date().toISOString(),
+        userUid: currentUser.uid,
+        tasks
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `kanban-${boardId}.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+
+    // Import JSON (replaces current user's board)
+    importBtn.addEventListener("click", () => {
+      if (!currentUser) return;
+      importFile.click();
+    });
+
+    importFile.addEventListener("change", async () => {
+      if (!currentUser) return;
+      const file = importFile.files?.[0];
+      if (!file) return;
+
+      try {
+        const text = await file.text();
+        const parsed = JSON.parse(text);
+
+        const incoming = Array.isArray(parsed) ? parsed : parsed?.tasks;
+        if (!Array.isArray(incoming)) throw new Error("Invalid JSON format. Expected an array or {tasks:[]}");
+
+        const normalized = normalizeImportedTasks(incoming);
+
+        if (!confirm(`Import ${normalized.length} tasks? This will REPLACE your board "${boardId}".`)) {
+          importFile.value = "";
+          return;
+        }
+
+        tasks = normalized;
+        await saveCloud();
+        render();
+      } catch (e) {
+        console.error(e);
+        alert(e.message || "Invalid JSON file.");
+      } finally {
+        importFile.value = "";
+      }
+    });
+
+    // =========================
+    // ADMIN
+    // =========================
+    async function checkAdmin(uid) {
+      const adminRef = doc(db, "admins", uid);
+      const snap = await getDoc(adminRef);
+      return snap.exists();
+    }
+
+    async function loadAllBoardsForAdmin() {
+      if (!currentUser || !isAdmin) return;
+
+      setSync("admin loading…");
+      adminPanel.style.display = "";
+      adminPanel.innerHTML = `<h2>Admin View</h2><div class="muted">Loading all users' boards…</div>`;
+
+      // Reads ALL docs in users/*/boards/*
+      const q = query(collectionGroup(db, "boards"));
+      const snap = await getDocs(q);
+
+      // Group by userId
+      const grouped = new Map(); // userId -> [{boardId, tasks}]
+      snap.forEach(docSnap => {
+        const path = docSnap.ref.path; // "users/{uid}/boards/{boardId}"
+        const parts = path.split("/");
+        const userId = parts[1];
+        const bId = parts[3];
+        const data = docSnap.data();
+        const t = Array.isArray(data?.tasks) ? data.tasks : [];
+
+        if (!grouped.has(userId)) grouped.set(userId, []);
+        grouped.get(userId).push({ boardId: bId, tasks: t });
+      });
+
+      let html = `<h2>Admin View (read-only)</h2>
+        <div class="muted">Users: ${grouped.size} • Board docs: ${snap.size}</div>`;
+
+      for (const [userId, boards] of grouped.entries()) {
+        html += `<div class="userbox">
+          <div style="font-weight:600;margin-bottom:6px;">User UID: <code>${escapeHtml(userId)}</code></div>`;
+
+        // Sort boards by name for nicer view
+        boards.sort((a,b) => a.boardId.localeCompare(b.boardId));
+
+        for (const b of boards) {
+          html += `<div class="boardbox">
+            <div class="muted">Board: <code>${escapeHtml(b.boardId)}</code> • Tasks: ${b.tasks.length}</div>
+            <ul style="margin:8px 0 0 0;padding-left:18px;">`;
+
+          // Sort tasks by createdAt
+          const list = [...b.tasks].sort((x,y) => (x.createdAt||0) - (y.createdAt||0));
+          for (const t of list) {
+            html += `<li><span class="pill">${escapeHtml(t.status)}</span> ${escapeHtml(t.title)}</li>`;
+          }
+          html += `</ul></div>`;
+        }
+
+        html += `</div>`;
+      }
+
+      adminPanel.innerHTML = html;
+      setSync("admin view");
+    }
+
+    adminViewBtn.addEventListener("click", async () => {
+      if (!isAdmin) return;
+      // Hide normal board while in admin view
+      boardEl.style.display = "none";
+      adminPanel.style.display = "";
+      myViewBtn.style.display = "";
+      await loadAllBoardsForAdmin();
+    });
+
+    myViewBtn.addEventListener("click", () => {
+      adminPanel.style.display = "none";
+      boardEl.style.display = "";
+      myViewBtn.style.display = "none";
+      setSync(currentUser ? "live" : "signed out");
+    });
+
+    // =========================
+    // AUTH actions
+    // =========================
+    signupBtn.addEventListener("click", async () => {
+      try {
+        setSync("signing up…");
+        await createUserWithEmailAndPassword(auth, emailEl.value.trim(), passEl.value);
+      } catch (e) {
+        console.error(e);
+        setSync("error");
+        alert(e?.message || "Signup failed");
+      }
+    });
+
+    signinBtn.addEventListener("click", async () => {
+      try {
+        setSync("signing in…");
+        await signInWithEmailAndPassword(auth, emailEl.value.trim(), passEl.value);
+      } catch (e) {
+        console.error(e);
+        setSync("error");
+        alert(e?.message || "Signin failed");
+      }
+    });
+
+    logoutBtn.addEventListener("click", async () => {
+      await signOut(auth);
+    });
+
+    // Auth state -> connect to board
+    onAuthStateChanged(auth, async (user) => {
+      // cleanup old snapshot listener
+      if (unsubscribeBoard) { unsubscribeBoard(); unsubscribeBoard = null; }
+
+      currentUser = user;
+      isAdmin = false;
+
+      // reset admin UI
+      adminPanel.style.display = "none";
+      myViewBtn.style.display = "none";
+      boardEl.style.display = "";
+
+      if (!user) {
+        tasks = [];
+        render();
+        boardEl.classList.add("disabled");
+        logoutBtn.style.display = "none";
+        userLabel.textContent = "";
+        uidLabel.textContent = "";
+        adminViewBtn.style.display = "none";
+        setSync("signed out");
+        return;
+      }
+
+      // signed in
+      boardEl.classList.remove("disabled");
+      logoutBtn.style.display = "";
+      userLabel.textContent = user.email || "Signed in";
+      uidLabel.textContent = `UID: ${user.uid}`;
+
+      isAdmin = await checkAdmin(user.uid);
+      adminViewBtn.style.display = isAdmin ? "" : "none";
+
+      await ensureBoardDocExists();
+
+      setSync("connecting…");
+      unsubscribeBoard = onSnapshot(boardDocRef(), (snap) => {
+        const data = snap.data();
+        tasks = Array.isArray(data?.tasks) ? data.tasks : [];
+        render();
+        setSync("live");
+      }, (err) => {
+        console.error(err);
+        setSync("permission error (check rules)");
+      });
+    });
+
+    // Initial render
+    render();
   </script>
 </body>
 </html>
